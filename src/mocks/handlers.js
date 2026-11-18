@@ -1,4 +1,5 @@
-import { delay, HttpResponse } from 'msw'
+import { delay, http, HttpResponse } from 'msw'
+import { destinos } from './datos.js'
 import { leerModoSimulacion, MODOS } from './simulacion.js'
 
 // Rutas relativas a la base del sitio, para que funcionen también en GitHub Pages
@@ -38,5 +39,12 @@ export function noEncontrado(mensaje) {
   return HttpResponse.json({ mensaje }, { status: 404 })
 }
 
-// Los recursos REST y la consulta GraphQL se agregan en los pasos siguientes
-export const handlers = []
+export const handlers = [
+  // Listado de destinos con su país y actividades populares
+  http.get(`${API}/destinos`, async () => {
+    const falla = respuestaFallaRest(await esperarRed())
+    if (falla) return falla
+
+    return HttpResponse.json(destinos)
+  }),
+]

@@ -6,7 +6,10 @@ import SelectorSimulacion from './SelectorSimulacion.jsx'
 import VolverArriba from './VolverArriba.jsx'
 import { ESLOGAN, NOMBRE_SITIO } from '../config/sitio.js'
 
-const enlaces = [{ ruta: '/', texto: 'Inicio' }]
+const enlaces = [
+  { ruta: '/', texto: 'Inicio' },
+  { ruta: '/destinos', texto: 'Destinos' },
+]
 
 const clasesEnlaceNavegacion =
   'block rounded-md px-3 py-1.5 text-sobre-primario no-underline hover:bg-primario-oscuro hover:underline focus-visible:outline-sobre-primario aria-[current=page]:bg-primario-oscuro'
