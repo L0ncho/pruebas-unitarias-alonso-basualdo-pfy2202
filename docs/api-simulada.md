@@ -213,7 +213,7 @@ Ejemplo de destino inexistente:
 }
 ```
 
-En la interfaz, un id inválido en la URL no llega a la API: la página lo detecta con `convertirEntero` y muestra "Destino no encontrado" sin hacer la petición. El handler lo valida igual porque una regla se cumple en todos los puntos de entrada.
+En la interfaz, un id inválido en la URL no llega a la API: la página lo detecta con `convertirEntero` y muestra "Destino no encontrado" sin hacer la petición. El handler lo valida igual, para que la regla no dependa de la interfaz.
 
 ## Modos de simulación
 
@@ -245,7 +245,7 @@ Si el almacenamiento está bloqueado, el modo queda en "Normal" ([`almacenamient
 
 ## MSW en producción y arranque del worker
 
-- **MSW está en `dependencies` y activo también en producción.** La guía del curso lo activa solo en desarrollo, pero GitHub Pages solo sirve archivos estáticos: sin el mock, el sitio publicado no tendría datos. Es una desviación consciente para que el sitio se pueda evaluar.
+- **MSW está en `dependencies` y activo también en producción.** GitHub Pages solo sirve archivos estáticos: sin el mock, el sitio publicado no tendría datos. Por eso MSW no es una dependencia de desarrollo y el worker se inicia también en el sitio publicado.
 - **Arranque** en [`main.jsx`](../src/main.jsx): la aplicación se renderiza después de `worker.start()`, para que ninguna petición se adelante al worker. MSW se importa de forma diferida, en un archivo propio que el navegador reutiliza desde su caché.
 - **Registro con la base del sitio** en [`browser.js`](../src/mocks/browser.js): `url` `${BASE_URL}mockServiceWorker.js` y `scope` `BASE_URL`, con `onUnhandledRequest: 'bypass'` (las peticiones que no son de la API siguen a la red). `mockServiceWorker.js` vive en `public/` y se genera con `npx msw init public`.
 - **Si el mock no puede arrancar**, se muestra un aviso específico en lugar de la aplicación ([`MockNoDisponible.jsx`](../src/components/MockNoDisponible.jsx)): el navegador no permite Service Workers, no permitió iniciarlos o no se pudo descargar el código del mock. Detalle en [decisiones técnicas](decisiones-tecnicas.md#aviso-de-service-worker-no-disponible).

@@ -69,7 +69,7 @@ Pruebas manuales en el [sitio publicado](https://l0ncho.github.io/viajes-alonso-
 
 **Antes:** se mostraba "No se pudieron descargar los datos simulados… Revisa tu conexión a internet", aunque la conexión estaba bien.
 
-![Aviso antes de la corrección](img/aviso-almacenamiento-antes.png)
+![Aviso antes de la corrección](images/aviso-almacenamiento-antes.png)
 
 **Causa:** MSW lee `localStorage` al cargarse. Con el almacenamiento bloqueado, Chrome lanza `SecurityError`, el `import()` del mock fallaba y el arranque lo clasificaba como una falla de descarga.
 
@@ -77,7 +77,7 @@ Pruebas manuales en el [sitio publicado](https://l0ncho.github.io/viajes-alonso-
 
 **Después:** se muestra "El navegador no permitió iniciar los datos simulados", con la causa probable y qué hacer.
 
-![Aviso después de la corrección](img/aviso-almacenamiento-despues.png)
+![Aviso después de la corrección](images/aviso-almacenamiento-despues.png)
 
 ### Errores encontrados durante el desarrollo
 

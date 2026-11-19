@@ -1,35 +1,34 @@
 # Decisiones técnicas
 
-## Reutilización desde Librarte
+## Reutilización dentro del proyecto
 
-AirFly partió de una copia del código de Librarte, mi proyecto de la semana 4 ([libreria-alonso-basualdo-pfy2202](https://github.com/L0ncho/libreria-alonso-basualdo-pfy2202)), sin su historial. Se conservó lo genérico, adaptado a AirFly, y se eliminó todo lo propio de la librería.
+Las dos páginas de datos (Destinos por REST y Destino por GraphQL) y las dos APIs comparten la mayor parte de su infraestructura. Así, un mismo error se muestra igual en ambas páginas, y cada regla está escrita una sola vez.
 
-**Reutilizado y adaptado**
-- Capa de datos REST: el cliente HTTP con caché, peticiones compartidas y cancelación ([`clienteHttp.js`](../src/services/clienteHttp.js)), [`useConsulta.js`](../src/hooks/useConsulta.js), [`normalizarError`](../src/utils/errores.js) (después extendido a Apollo) e [`ids.js`](../src/utils/ids.js).
-- Navegación: [`useVolver.js`](../src/hooks/useVolver.js) y [`VolverArriba.jsx`](../src/components/VolverArriba.jsx).
-- Componentes de interfaz: `Layout`, `Boton`, `Aviso`, `AvisoErrorConsulta`, `Cargando`, `TituloPagina` y el selector "Simulación de la API".
-- Tema claro y oscuro (`BotonTema` y el script de `index.html`), con una paleta nueva.
-- Configuración: GitHub Pages en [`vite.config.js`](../vite.config.js) (base y `404.html`), arranque de MSW en `main.jsx`, ESLint y la configuración de Vitest.
+**Compartido entre las dos APIs**
+- [`normalizarError`](../src/utils/errores.js) traduce los errores REST (por código HTTP) y los de Apollo (por clase y `extensions.code`) a `{ tipo, estado, mensaje }`, con los mismos mensajes.
+- [`AvisoErrorConsulta.jsx`](../src/components/AvisoErrorConsulta.jsx) muestra cualquier error normalizado con su título y sus alternativas: Reintentar solo cuando sirve y siempre un enlace de salida.
+- [`convertirEntero`](../src/utils/ids.js) valida los ids en las páginas y en los handlers de ambas APIs.
+- `esperarRed()` en [`handlers.js`](../src/mocks/handlers.js) aplica la misma demora y el mismo modo de simulación a REST y a GraphQL; cada API arma solo su respuesta de falla.
+- [`useOpcionesViaje.js`](../src/hooks/useOpcionesViaje.js) devuelve la misma forma que [`useConsulta.js`](../src/hooks/useConsulta.js) (`datos`, `cargando`, `error` y `reintentar`), así ambas páginas manejan carga, error y reintento de la misma manera.
+- Los dos clientes marcan la falla de red igual (`{ red: true }`): solo el rechazo de `fetch` cuenta como "sin conexión".
 
-**Nuevo en AirFly**
-- API GraphQL simulada con esquema real y Apollo Client 4: [`handlers.js`](../src/mocks/handlers.js), [`clienteApollo.js`](../src/services/clienteApollo.js), [`consultas.js`](../src/services/consultas.js), [`useOpcionesViaje.js`](../src/hooks/useOpcionesViaje.js) y la traducción de errores de Apollo.
-- Página del destino ([`Destino.jsx`](../src/pages/Destino.jsx)) con vuelos, hoteles y la nota de llegada.
-- Selección del viaje y cotización: [`viaje.js`](../src/utils/viaje.js), [`ResumenViaje.jsx`](../src/components/destino/ResumenViaje.jsx), [`GrupoOpciones.jsx`](../src/components/destino/GrupoOpciones.jsx), [`OpcionVuelo.jsx`](../src/components/destino/OpcionVuelo.jsx) y [`OpcionHotel.jsx`](../src/components/destino/OpcionHotel.jsx).
-- Horarios de vuelo con husos horarios ([`HorarioTramo.jsx`](../src/components/destino/HorarioTramo.jsx) y `formatearDuracion`).
-- Filtro de destinos en la URL ([`destinos.js`](../src/utils/destinos.js) y [`FiltroRegion.jsx`](../src/components/destinos/FiltroRegion.jsx)).
-- Aviso de Service Worker no disponible y acceso seguro al almacenamiento ([`mock.js`](../src/utils/mock.js), [`MockNoDisponible.jsx`](../src/components/MockNoDisponible.jsx), [`almacenamiento.js`](../src/utils/almacenamiento.js) y [`tema.js`](../src/utils/tema.js)).
-- Carga diferida de Apollo y del ejecutor de GraphQL.
+**Compartido entre páginas y componentes**
+- Interfaz: `Layout` envuelve todas las páginas, y `Boton`, `Aviso`, `Cargando` y `TituloPagina` se usan en varias. Las clases de Tailwind que comparten varios componentes están en [`clases.js`](../src/styles/clases.js) (por ejemplo, las del botón y de las opciones elegibles).
+- [`GrupoOpciones.jsx`](../src/components/destino/GrupoOpciones.jsx) agrupa tanto los vuelos como los hoteles, y [`HorarioTramo.jsx`](../src/components/destino/HorarioTramo.jsx) se usa en la tarjeta del vuelo y en el resumen.
+- Navegación: [`useVolver.js`](../src/hooks/useVolver.js) en la página del destino y en la página no encontrada.
+- Funciones puras de [`src/utils`](../src/utils): formato de precios, fechas y duraciones; cálculos del viaje; filtro de destinos; almacenamiento seguro.
+- Reglas en un solo lugar: el nombre del sitio y el país de la agencia en [`sitio.js`](../src/config/sitio.js), que usan el filtro (Nacionales) y la anticipación recomendada (2 o 3 horas); los modos de simulación en [`simulacion.js`](../src/mocks/simulacion.js), que usan el selector del pie y los handlers.
 
-## Diferencias con la guía del curso
+## Herramientas y versiones
 
-| Guía | AirFly | Razón |
-| --- | --- | --- |
-| Create React App | Vite 8 | Create React App está descontinuado; Vite es la herramienta vigente |
-| `process.env.PUBLIC_URL` | `import.meta.env.BASE_URL` | Es la forma de Vite de conocer la base del sitio |
-| `react-router-dom` | `react-router` (v8) | Desde la v7 todo se importa desde `react-router`; `react-router-dom` ya no existe en la v8 |
-| MSW solo en desarrollo | MSW en `dependencies` y activo en producción | GitHub Pages solo sirve archivos estáticos: sin el mock, el sitio publicado no tendría datos |
-| Apollo Client 3 | Apollo Client 4 | Versión vigente. Cambian los imports (hooks y `ApolloProvider` desde `@apollo/client/react`), el cliente se configura con `link: new HttpLink(...)`, requiere `rxjs`, y `ApolloError` ya no existe: hay clases propias (`CombinedGraphQLErrors`, `ServerError`, `ServerParseError`) |
-| `graphql` sin versión fija | `graphql` 16.15 | Es la serie que usa MSW 2: así queda una sola copia instalada (`npm ls graphql` lo confirma) |
+| Decisión | Razón |
+| --- | --- |
+| Vite 8 | Servidor de desarrollo rápido, compilación con división de archivos configurable y soporte directo para React y Tailwind v4 |
+| `import.meta.env.BASE_URL` | Es la forma de Vite de conocer la base del sitio: la misma variable configura `BrowserRouter`, las rutas de las APIs y el registro del worker, para que todo funcione en la subcarpeta de GitHub Pages |
+| `react-router` v8 | Desde la v7 todo se importa desde `react-router`; en la v8 ya no existe `react-router-dom`. Se usa el modo declarativo con `BrowserRouter` |
+| MSW en `dependencies` y activo en producción | GitHub Pages solo sirve archivos estáticos: sin el mock, el sitio publicado no tendría datos. Por eso MSW no puede ser una dependencia de desarrollo |
+| Apollo Client 4 | Versión vigente. Los hooks y `ApolloProvider` se importan desde `@apollo/client/react`, el cliente se configura con `link: new HttpLink(...)`, requiere `rxjs`, y los errores tienen clases propias (`CombinedGraphQLErrors`, `ServerError`, `ServerParseError`) que `normalizarError` traduce |
+| `graphql` 16.15 | Es la serie que usa MSW 2: así queda una sola copia instalada, compartida por MSW y Apollo (`npm ls graphql` lo confirma) |
 
 ## Capa de datos
 
@@ -113,7 +112,7 @@ Las capturas de antes y después están en [pruebas](pruebas.md#errores-encontra
 
 ## Fuera de alcance y posibles mejoras
 
-- **Reservas:** la actividad no pide mutaciones y la cotización no reserva nada. Si se agregaran, ya hay piezas preparadas:
+- **Reservas:** el sitio cotiza y no reserva, por eso la API no tiene mutaciones. Si se agregaran, ya hay piezas preparadas:
   - La selección guarda `vueloId` y `hotelId`, que serían las variables de una mutación `reservarViaje`.
   - La caché normalizada de Apollo actualizaría sola los asientos y habitaciones disponibles de `Vuelo:id` y `Hotel:id` con la respuesta de la mutación.
   - El handler ya ejecuta cualquier operación contra el esquema: bastaría agregar el tipo `Mutation` y su resolutor.

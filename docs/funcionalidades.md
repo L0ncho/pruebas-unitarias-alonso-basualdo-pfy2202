@@ -1,12 +1,12 @@
-# Criterios de la pauta
+# Funcionalidades
 
-Evidencia de cada criterio: dónde está en el código, qué pruebas lo cubren y cómo comprobarlo en el sitio. Las rutas del sitio son relativas a https://l0ncho.github.io/viajes-alonso-basualdo-pfy2202/
+Qué incluye AirFly, dónde está en el código, qué pruebas lo cubren y cómo comprobarlo en el sitio. Las rutas del sitio son relativas a https://l0ncho.github.io/viajes-alonso-basualdo-pfy2202/
 
-## 1. Interfaz intuitiva, funcional y responsiva
+## Interfaz responsiva
 
 **Código**
 - Estructura común en [`Layout.jsx`](../src/components/Layout.jsx): encabezado con nombre, eslogan, menú con el enlace activo marcado (`aria-current`) y botón de tema; contenido; pie con el selector de simulación.
-- Recorrido guiado: Inicio → Destinos (tarjetas con "Ver vuelos y hoteles") → Destino (vuelos, hoteles y resumen) → Volver.
+- Recorrido: Inicio → Destinos (tarjetas con "Ver vuelos y hoteles") → Destino (vuelos, hoteles y resumen) → Volver.
 - Cada estado tiene su mensaje y una alternativa: carga ([`Cargando.jsx`](../src/components/Cargando.jsx)), error con Reintentar y salida ([`AvisoErrorConsulta.jsx`](../src/components/AvisoErrorConsulta.jsx)), lista vacía, destino sin oferta, no encontrado y fechas que no calzan.
 - Diseño responsivo con los breakpoints `sm` y `md` de Tailwind:
   - Destinos: grilla de 1 columna a 360 px, 2 en `sm` y 3 en `md` ([`Destinos.jsx`](../src/pages/Destinos.jsx)).
@@ -15,7 +15,7 @@ Evidencia de cada criterio: dónde está en el código, qué pruebas lo cubren y
 
 **Cómo comprobarlo:** recorrer el sitio a 360 px (modo dispositivo de las herramientas de desarrollo) y en escritorio, en ambos temas. Ver la [matriz de pruebas](pruebas.md#matriz-de-pruebas-en-navegadores).
 
-## 2. API REST mock
+## API REST simulada
 
 **Código**
 - Handler `GET /api/destinos` en [`handlers.js`](../src/mocks/handlers.js), con demora realista y los modos de falla del selector. Detalle en [API simulada](api-simulada.md#api-rest).
@@ -29,7 +29,7 @@ Evidencia de cada criterio: dónde está en el código, qué pruebas lo cubren y
 
 **Cómo comprobarlo:** pasos 1, 2 y 5 de la [revisión rápida](../README.md#revisión-rápida). En *Network* se ve una sola petición a `api/destinos` aunque se navegue varias veces por la página.
 
-## 3. API GraphQL mock
+## API GraphQL simulada
 
 **Código**
 - Endpoint GraphQL en [`handlers.js`](../src/mocks/handlers.js): un esquema real (`buildSchema`) contra el que se ejecuta cada consulta, de modo que se responden solo los campos pedidos y los errores llevan `path` y `extensions.code`.
@@ -43,7 +43,7 @@ Evidencia de cada criterio: dónde está en el código, qué pruebas lo cubren y
 
 **Cómo comprobarlo:** pasos 3 a 6 de la [revisión rápida](../README.md#revisión-rápida). En *Network*, la petición `graphql` muestra en *Payload* la consulta y sus variables, y en *Response* solo los campos pedidos.
 
-## 4. React Router
+## Navegación
 
 **Código**
 - Rutas en [`AppRoutes.jsx`](../src/routes/AppRoutes.jsx): `/`, `/destinos`, `/destinos/:id` y `*` (página no encontrada), todas dentro de `Layout` y con carga diferida (`lazy`). El único `Suspense` envuelve el `Outlet` de `Layout`, así que el encabezado y el pie no desaparecen al cambiar de página.
@@ -55,17 +55,17 @@ Evidencia de cada criterio: dónde está en el código, qué pruebas lo cubren y
 
 **Cómo comprobarlo:** paso 7 de la [revisión rápida](../README.md#revisión-rápida); entrar directo a `/destinos/1` y pulsar **Volver** (va a Destinos, no sale del sitio).
 
-## 5. Código modular y reutilizable
+## Organización y reutilización del código
 
 - **Capas separadas:** las páginas nunca llaman a `fetch` ni a Apollo; usan hooks (`useDestinos`, `useOpcionesViaje`), que usan servicios (`clienteHttp`, `clienteApollo`, `consultas`). Los datos del mock (`datos.js`) están separados de su lógica (`handlers.js`).
 - **Componentes reutilizables:** `Boton`, `Aviso`, `AvisoErrorConsulta`, `Cargando` y `TituloPagina` se usan en varias páginas. `GrupoOpciones` sirve para vuelos y para hoteles, y `HorarioTramo` para la tarjeta del vuelo y para el resumen.
+- **Compartido entre las dos APIs:** `normalizarError` traduce los errores REST y los de Apollo al mismo formato, así `AvisoErrorConsulta` muestra los mismos avisos en Destinos y en Destino; `convertirEntero` valida los ids en las páginas y en los handlers de ambas APIs; `esperarRed()` aplica la misma simulación de red a REST y a GraphQL; `useOpcionesViaje` devuelve la misma forma que `useConsulta` (`datos`, `cargando`, `error` y `reintentar`). Detalle en [decisiones técnicas](decisiones-tecnicas.md#reutilización-dentro-del-proyecto).
 - **Funciones puras en `src/utils`**, cada una con su prueba: formato de precios, fechas y duraciones ([`formato.js`](../src/utils/formato.js)), cálculos del viaje ([`viaje.js`](../src/utils/viaje.js)), filtro ([`destinos.js`](../src/utils/destinos.js)), errores ([`errores.js`](../src/utils/errores.js)), ids ([`ids.js`](../src/utils/ids.js)), diagnóstico del mock ([`mock.js`](../src/utils/mock.js)) y almacenamiento ([`almacenamiento.js`](../src/utils/almacenamiento.js)).
 - **Una sola fuente para cada regla:** el nombre del sitio y el país de la agencia en [`sitio.js`](../src/config/sitio.js); las clases de Tailwind compartidas en [`clases.js`](../src/styles/clases.js); los modos de simulación en [`simulacion.js`](../src/mocks/simulacion.js).
-- **Reutilización entre proyectos:** la base técnica proviene de Librarte, el proyecto de la semana 4 ([detalle](decisiones-tecnicas.md#reutilización-desde-librarte)).
 
 **Cómo comprobarlo:** la [estructura](../README.md#estructura) y `npm run lint` sin errores.
 
-## 6. Manejo de estado con useState y useEffect
+## Manejo de estado
 
 | Dónde | Estado | Para qué |
 | --- | --- | --- |
@@ -86,7 +86,7 @@ Evidencia de cada criterio: dónde está en el código, qué pruebas lo cubren y
 
 **Cómo comprobarlo:** paso 4 de la [revisión rápida](../README.md#revisión-rápida); con "Respuesta lenta (4 s)" se ve el indicador de carga mientras el título ya está visible.
 
-## 7. Publicación en GitHub
+## Publicación en GitHub Pages
 
 - Repositorio con la estructura descrita en el [README](../README.md#estructura) y documentación en `docs/`.
 - Publicación con `npm run deploy` (`gh-pages -d dist`, que antes ejecuta `npm run build`) en la rama `gh-pages` ([`package.json`](../package.json)).
@@ -95,7 +95,7 @@ Evidencia de cada criterio: dónde está en el código, qué pruebas lo cubren y
 
 **Cómo comprobarlo:** abrir el [sitio publicado](https://l0ncho.github.io/viajes-alonso-basualdo-pfy2202/) y, en *Application → Service Workers*, ver `mockServiceWorker.js` con el alcance de la subcarpeta.
 
-## 8. Pruebas en distintos navegadores
+## Pruebas
 
 - [Matriz de pruebas](pruebas.md#matriz-de-pruebas-en-navegadores) en Chrome (Windows, motor Chromium) y Safari (iPhone, motor WebKit): 8 casos (flujo principal, filtro, selección y total, errores con el selector, 404, recarga en ruta interna, celular o 360 px y ambos temas), aprobados en ambos navegadores.
 - [Errores encontrados y corregidos](pruebas.md#errores-encontrados-y-corregidos): el aviso equivocado con el almacenamiento bloqueado en Chrome, con su causa y corrección.

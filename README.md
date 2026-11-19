@@ -2,15 +2,12 @@
 
 Aplicación de una sola página (SPA) en React para una agencia de viajes. El usuario explora los destinos disponibles (API REST simulada), elige uno y compara sus vuelos y hoteles (API GraphQL simulada) para armar una cotización de su viaje. Ambas APIs se simulan con MSW (Mock Service Worker) en el navegador, con demoras realistas y errores que se pueden provocar desde la interfaz.
 
-Actividad sumativa de la semana 5 de Frontend II (PFY2202).
-
 - **Sitio publicado:** https://l0ncho.github.io/viajes-alonso-basualdo-pfy2202/
 - **Repositorio:** https://github.com/L0ncho/viajes-alonso-basualdo-pfy2202
-- **Base técnica reutilizada** de mi proyecto anterior, Librarte (semana 4): [libreria-alonso-basualdo-pfy2202](https://github.com/L0ncho/libreria-alonso-basualdo-pfy2202). El detalle de qué se reutilizó y qué es nuevo está en [decisiones técnicas](docs/decisiones-tecnicas.md#reutilización-desde-librarte).
 
 ## Revisión rápida
 
-En el sitio publicado, con las herramientas de desarrollo abiertas en la pestaña *Network*. El selector **"Simulación de la API"** está en el pie de página.
+Un recorrido por el sitio publicado para ver sus funciones en unos minutos. Conviene abrir las herramientas de desarrollo del navegador en la pestaña *Network* para ver las peticiones. El selector **"Simulación de la API"** está en el pie de página.
 
 1. **REST:** desde Inicio, pulsa **Ver destinos**. Se piden los 8 destinos con una sola petición `GET …/api/destinos`, respondida por el Service Worker.
 2. **Filtro:** elige **Nacionales**. Se muestran 4 destinos, el texto dice "Mostrando 4 de 8 destinos" y la URL queda con `?region=nacionales`, sin nuevas peticiones. Al recargar, el filtro se mantiene.
@@ -20,22 +17,22 @@ En el sitio publicado, con las herramientas de desarrollo abiertas en la pestañ
 6. **No encontrado y sin oferta:** abre `/destinos/99` (destino inexistente según la API) y `/destinos/abc` (id inválido: no hace ninguna petición). Ambos muestran "Destino no encontrado", sin Reintentar. **Madrid** no tiene vuelos ni hoteles y lo indica con su propio mensaje.
 7. **404 y recarga:** abre `/cualquier-cosa` para ver "Página no encontrada". Recarga estando en `/destinos/1`: la página carga igual gracias al `404.html` que genera el build.
 
-## Criterios de la pauta
+## Qué incluye y dónde verlo
 
-| Criterio | Puntaje | Dónde se cumple |
+| Tema | Qué incluye | Dónde verlo |
 | --- | --- | --- |
-| 1. Interfaz intuitiva, funcional y responsiva | 15 | [Detalle](docs/criterios.md#1-interfaz-intuitiva-funcional-y-responsiva) · [`Layout.jsx`](src/components/Layout.jsx), [`Destino.jsx`](src/pages/Destino.jsx), [`index.css`](src/index.css) |
-| 2. API REST mock que lista datos sin errores | 15 | [Detalle](docs/criterios.md#2-api-rest-mock) · [`handlers.js`](src/mocks/handlers.js), [`clienteHttp.js`](src/services/clienteHttp.js), [`Destinos.jsx`](src/pages/Destinos.jsx) |
-| 3. API GraphQL mock con información detallada | 15 | [Detalle](docs/criterios.md#3-api-graphql-mock) · [`handlers.js`](src/mocks/handlers.js), [`consultas.js`](src/services/consultas.js), [`useOpcionesViaje.js`](src/hooks/useOpcionesViaje.js) |
-| 4. React Router con navegación fluida | 10 | [Detalle](docs/criterios.md#4-react-router) · [`AppRoutes.jsx`](src/routes/AppRoutes.jsx), [`useVolver.js`](src/hooks/useVolver.js) |
-| 5. Código modular y reutilizable | 10 | [Detalle](docs/criterios.md#5-código-modular-y-reutilizable) · [estructura](#estructura) |
-| 6. Estado con useState y useEffect | 10 | [Detalle](docs/criterios.md#6-manejo-de-estado-con-usestate-y-useeffect) · [`useConsulta.js`](src/hooks/useConsulta.js), [`Destino.jsx`](src/pages/Destino.jsx) |
-| 7. Publicación en GitHub y gh-pages | 10 | [Detalle](docs/criterios.md#7-publicación-en-github) · [`vite.config.js`](vite.config.js), [`package.json`](package.json) |
-| 8. Pruebas en distintos navegadores | 15 | [Detalle](docs/criterios.md#8-pruebas-en-distintos-navegadores) · [pruebas](docs/pruebas.md) |
+| Interfaz responsiva | Recorrido Inicio → Destinos → Destino, avisos para cada estado, diseño de 360 px a escritorio, tema claro y oscuro | [Detalle](docs/funcionalidades.md#interfaz-responsiva) · [`Layout.jsx`](src/components/Layout.jsx), [`Destino.jsx`](src/pages/Destino.jsx), [`index.css`](src/index.css) |
+| API REST simulada | `GET /api/destinos` con cliente HTTP propio, caché por URL y cancelación | [Detalle](docs/funcionalidades.md#api-rest-simulada) · [`handlers.js`](src/mocks/handlers.js), [`clienteHttp.js`](src/services/clienteHttp.js), [`Destinos.jsx`](src/pages/Destinos.jsx) |
+| API GraphQL simulada | Una consulta con el destino, sus vuelos y sus hoteles; Apollo Client con caché normalizada | [Detalle](docs/funcionalidades.md#api-graphql-simulada) · [`handlers.js`](src/mocks/handlers.js), [`consultas.js`](src/services/consultas.js), [`useOpcionesViaje.js`](src/hooks/useOpcionesViaje.js) |
+| Navegación | React Router con carga diferida, Volver seguro, filtro en la URL, página 404 y recarga en rutas internas | [Detalle](docs/funcionalidades.md#navegación) · [`AppRoutes.jsx`](src/routes/AppRoutes.jsx), [`useVolver.js`](src/hooks/useVolver.js) |
+| Organización y reutilización del código | Capas separadas, componentes y funciones compartidos entre páginas y entre las dos APIs | [Detalle](docs/funcionalidades.md#organización-y-reutilización-del-código) · [estructura](#estructura) |
+| Manejo de estado | `useState` y `useEffect`, estado derivado y estado en la URL | [Detalle](docs/funcionalidades.md#manejo-de-estado) · [`useConsulta.js`](src/hooks/useConsulta.js), [`Destino.jsx`](src/pages/Destino.jsx) |
+| Publicación en GitHub Pages | Base de la subcarpeta, `404.html` y worker de MSW registrado con la base | [Detalle](docs/funcionalidades.md#publicación-en-github-pages) · [`vite.config.js`](vite.config.js), [`package.json`](package.json) |
+| Pruebas | 225 pruebas automatizadas y pruebas manuales en Chrome y Safari | [Detalle](docs/funcionalidades.md#pruebas) · [pruebas](docs/pruebas.md) |
 
 ## Alcance
 
-- **Cotización, no reserva:** el usuario elige un vuelo y un hotel y ve el total estimado para **1 pasajero y 1 habitación**. No se realiza ninguna reserva y la API GraphQL no tiene mutaciones: la actividad no las pide.
+- **Cotización, no reserva:** el usuario elige un vuelo y un hotel y ve el total estimado para **1 pasajero y 1 habitación**. El sitio es un cotizador: no realiza reservas, por eso la API GraphQL solo tiene consultas y no mutaciones.
 - **Destinos sin aeropuerto propio:** San Pedro de Atacama (vuelos a Calama) y Valparaíso (vuelos a Santiago) muestran una nota con la distancia aproximada y que el traslado terrestre no está incluido. Puerto Natales indica que sus vuelos son principalmente de temporada alta.
 - **Horarios:** horas locales de cada aeropuerto y duración de cada tramo; ningún tramo llega al día siguiente.
 - **Datos simulados:** todos los destinos, aerolíneas, hoteles y precios son ficticios.
@@ -87,9 +84,9 @@ docs/           documentación técnica
 
 ## Documentación
 
-- [Criterios de la pauta](docs/criterios.md): evidencia de cada criterio y cómo comprobarlo.
+- [Funcionalidades](docs/funcionalidades.md): qué incluye el sitio, dónde está en el código y cómo comprobarlo.
 - [API simulada](docs/api-simulada.md): endpoints REST y GraphQL, modos de simulación y escenarios de los datos.
 - [REST frente a GraphQL](docs/rest-vs-graphql.md): comparación aplicada a AirFly.
-- [Decisiones técnicas](docs/decisiones-tecnicas.md): reutilización, diferencias con la guía, capa de datos, carga, estado y accesibilidad.
+- [Decisiones técnicas](docs/decisiones-tecnicas.md): reutilización, herramientas elegidas, capa de datos, carga, estado y accesibilidad.
 - [Pruebas](docs/pruebas.md): pruebas automatizadas, matriz de navegadores y errores corregidos.
 - [Diagramas](docs/diagramas.md): arquitectura y flujos en Mermaid.
