@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { formatearFecha, formatearPrecio } from './formato.js'
+import {
+  formatearDisponibles,
+  formatearEscalas,
+  formatearFecha,
+  formatearNoches,
+  formatearPrecio,
+} from './formato.js'
 
 describe('formatearPrecio', () => {
   it.each([
@@ -18,5 +24,34 @@ describe('formatearFecha', () => {
     ['2027-01-01', 'vie, 1 ene 2027'],
   ])('formatea %j como %j en es-CL', (fecha, esperado) => {
     expect(formatearFecha(fecha)).toBe(esperado)
+  })
+})
+
+describe('formatearEscalas', () => {
+  it.each([
+    [0, 'Directo'],
+    [1, '1 escala'],
+    [2, '2 escalas'],
+  ])('con %j devuelve %j', (escalas, esperado) => {
+    expect(formatearEscalas(escalas)).toBe(esperado)
+  })
+})
+
+describe('formatearNoches', () => {
+  it.each([
+    [1, '1 noche'],
+    [5, '5 noches'],
+    [0, '0 noches'],
+  ])('con %j devuelve %j', (noches, esperado) => {
+    expect(formatearNoches(noches)).toBe(esperado)
+  })
+})
+
+describe('formatearDisponibles', () => {
+  it.each([
+    [1, '1 asiento disponible'],
+    [12, '12 asientos disponibles'],
+  ])('con %j devuelve %j', (cantidad, esperado) => {
+    expect(formatearDisponibles(cantidad, 'asiento', 'asientos')).toBe(esperado)
   })
 })

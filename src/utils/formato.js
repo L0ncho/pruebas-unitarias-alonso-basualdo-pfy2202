@@ -24,3 +24,19 @@ export function formatearPrecio(precio) {
 export function formatearFecha(fechaIso) {
   return formatoFecha.format(new Date(fechaIso))
 }
+
+// Escalas de un vuelo: 0 → "Directo", 1 → "1 escala", 2 → "2 escalas"
+export function formatearEscalas(escalas) {
+  if (escalas === 0) return 'Directo'
+  return escalas === 1 ? '1 escala' : `${escalas} escalas`
+}
+
+// Noches: 1 → "1 noche", 5 → "5 noches"
+export function formatearNoches(noches) {
+  return noches === 1 ? '1 noche' : `${noches} noches`
+}
+
+// Disponibilidad con su unidad: (1, 'asiento', 'asientos') → "1 asiento disponible"
+export function formatearDisponibles(cantidad, singular, plural) {
+  return cantidad === 1 ? `1 ${singular} disponible` : `${cantidad} ${plural} disponibles`
+}

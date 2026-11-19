@@ -10,10 +10,12 @@ export const OPCIONES_VIAJE = gql`
       nombre
       pais
       descripcion
+      notaLlegada
       vuelos {
         id
         aerolinea
         origen
+        llegada
         fechaIda
         fechaVuelta
         escalas

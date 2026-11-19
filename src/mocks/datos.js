@@ -1,11 +1,14 @@
 // Datos de la API simulada (solo datos, sin lógica). Precios en pesos chilenos (enteros)
-// y fechas en formato ISO.
+// y fechas en formato ISO. notaLlegada (opcional) explica cómo se llega cuando el destino
+// no tiene aeropuerto propio o sus vuelos son de temporada.
 // Los ids de los destinos son estables: los vuelos y hoteles se asocian a ellos por id
 export const destinos = [
   {
     id: 1,
     nombre: 'San Pedro de Atacama',
     pais: 'Chile',
+    notaLlegada:
+      'Los vuelos llegan a Calama, a unos 100 km de San Pedro de Atacama. El traslado terrestre no está incluido.',
     descripcion:
       'Un oasis en el desierto más árido del mundo, rodeado de salares, géiseres y volcanes. Sus cielos despejados lo hacen ideal para mirar las estrellas.',
     actividades: [
@@ -27,6 +30,8 @@ export const destinos = [
     id: 3,
     nombre: 'Puerto Natales',
     pais: 'Chile',
+    notaLlegada:
+      'El aeropuerto de Puerto Natales recibe vuelos comerciales principalmente en temporada alta (verano).',
     descripcion:
       'La puerta de entrada al Parque Nacional Torres del Paine, con glaciares, lagos turquesa y montañas de granito.',
     actividades: ['Trekking a la base de las Torres', 'Navegación al glaciar Grey', 'Cueva del Milodón'],
@@ -35,6 +40,8 @@ export const destinos = [
     id: 4,
     nombre: 'Valparaíso',
     pais: 'Chile',
+    notaLlegada:
+      'Valparaíso no tiene aeropuerto comercial: los vuelos llegan a Santiago, a unos 120 km. El traslado terrestre no está incluido.',
     descripcion:
       'Ciudad puerto de cerros coloridos, ascensores históricos y murales. Patrimonio de la Humanidad.',
     actividades: [
@@ -78,32 +85,33 @@ export const destinos = [
   },
 ]
 
-// Vuelos ida y vuelta asociados a un destino por destinoId. precio: CLP por persona.
+// Vuelos ida y vuelta asociados a un destino por destinoId. origen y llegada: ciudad y código
+// IATA del aeropuerto. precio: CLP por persona.
 // asientosDisponibles 0 = sin disponibilidad. Madrid (8) no tiene vuelos ni hoteles
 export const vuelos = [
   // San Pedro de Atacama
-  { id: 101, destinoId: 1, aerolinea: 'AeroAndes', origen: 'Santiago (SCL)', fechaIda: '2026-12-10', fechaVuelta: '2026-12-15', escalas: 0, precio: 189990, asientosDisponibles: 12 },
-  { id: 102, destinoId: 1, aerolinea: 'Cóndor Air', origen: 'Santiago (SCL)', fechaIda: '2026-12-10', fechaVuelta: '2026-12-15', escalas: 0, precio: 134990, asientosDisponibles: 0 },
-  { id: 103, destinoId: 1, aerolinea: 'Pacífico Sur', origen: 'Santiago (SCL)', fechaIda: '2027-01-07', fechaVuelta: '2027-01-12', escalas: 0, precio: 119990, asientosDisponibles: 5 },
+  { id: 101, destinoId: 1, aerolinea: 'AeroAndes', origen: 'Santiago (SCL)', llegada: 'Calama (CJC)', fechaIda: '2026-12-10', fechaVuelta: '2026-12-15', escalas: 0, precio: 189990, asientosDisponibles: 12 },
+  { id: 102, destinoId: 1, aerolinea: 'Cóndor Air', origen: 'Santiago (SCL)', llegada: 'Calama (CJC)', fechaIda: '2026-12-10', fechaVuelta: '2026-12-15', escalas: 0, precio: 134990, asientosDisponibles: 0 },
+  { id: 103, destinoId: 1, aerolinea: 'Pacífico Sur', origen: 'Santiago (SCL)', llegada: 'Calama (CJC)', fechaIda: '2027-01-07', fechaVuelta: '2027-01-12', escalas: 0, precio: 119990, asientosDisponibles: 5 },
   // Rapa Nui
-  { id: 104, destinoId: 2, aerolinea: 'AeroAndes', origen: 'Santiago (SCL)', fechaIda: '2026-12-18', fechaVuelta: '2026-12-25', escalas: 0, precio: 589990, asientosDisponibles: 4 },
-  { id: 105, destinoId: 2, aerolinea: 'AeroAndes', origen: 'Santiago (SCL)', fechaIda: '2027-01-15', fechaVuelta: '2027-01-22', escalas: 0, precio: 549990, asientosDisponibles: 0 },
+  { id: 104, destinoId: 2, aerolinea: 'AeroAndes', origen: 'Santiago (SCL)', llegada: 'Isla de Pascua (IPC)', fechaIda: '2026-12-18', fechaVuelta: '2026-12-25', escalas: 0, precio: 589990, asientosDisponibles: 4 },
+  { id: 105, destinoId: 2, aerolinea: 'AeroAndes', origen: 'Santiago (SCL)', llegada: 'Isla de Pascua (IPC)', fechaIda: '2027-01-15', fechaVuelta: '2027-01-22', escalas: 0, precio: 549990, asientosDisponibles: 0 },
   // Puerto Natales
-  { id: 106, destinoId: 3, aerolinea: 'Pacífico Sur', origen: 'Santiago (SCL)', fechaIda: '2027-01-20', fechaVuelta: '2027-01-27', escalas: 1, precio: 259990, asientosDisponibles: 9 },
-  { id: 107, destinoId: 3, aerolinea: 'Cóndor Air', origen: 'Santiago (SCL)', fechaIda: '2027-02-03', fechaVuelta: '2027-02-10', escalas: 0, precio: 289990, asientosDisponibles: 7 },
-  // Valparaíso (se llega por el aeropuerto de Santiago)
-  { id: 108, destinoId: 4, aerolinea: 'Cóndor Air', origen: 'Antofagasta (ANF)', fechaIda: '2026-12-28', fechaVuelta: '2027-01-02', escalas: 0, precio: 149990, asientosDisponibles: 10 },
-  { id: 109, destinoId: 4, aerolinea: 'Pacífico Sur', origen: 'Puerto Montt (PMC)', fechaIda: '2026-12-28', fechaVuelta: '2027-01-02', escalas: 0, precio: 129990, asientosDisponibles: 0 },
+  { id: 106, destinoId: 3, aerolinea: 'Pacífico Sur', origen: 'Santiago (SCL)', llegada: 'Puerto Natales (PNT)', fechaIda: '2027-01-20', fechaVuelta: '2027-01-27', escalas: 1, precio: 259990, asientosDisponibles: 9 },
+  { id: 107, destinoId: 3, aerolinea: 'Cóndor Air', origen: 'Santiago (SCL)', llegada: 'Puerto Natales (PNT)', fechaIda: '2027-02-03', fechaVuelta: '2027-02-10', escalas: 0, precio: 289990, asientosDisponibles: 7 },
+  // Valparaíso (llegada a Santiago)
+  { id: 108, destinoId: 4, aerolinea: 'Cóndor Air', origen: 'Antofagasta (ANF)', llegada: 'Santiago (SCL)', fechaIda: '2026-12-28', fechaVuelta: '2027-01-02', escalas: 0, precio: 149990, asientosDisponibles: 10 },
+  { id: 109, destinoId: 4, aerolinea: 'Pacífico Sur', origen: 'Puerto Montt (PMC)', llegada: 'Santiago (SCL)', fechaIda: '2026-12-28', fechaVuelta: '2027-01-02', escalas: 0, precio: 129990, asientosDisponibles: 0 },
   // Cusco
-  { id: 110, destinoId: 5, aerolinea: 'AeroAndes', origen: 'Santiago (SCL)', fechaIda: '2027-02-12', fechaVuelta: '2027-02-19', escalas: 1, precio: 429990, asientosDisponibles: 8 },
-  { id: 111, destinoId: 5, aerolinea: 'Pacífico Sur', origen: 'Santiago (SCL)', fechaIda: '2027-03-05', fechaVuelta: '2027-03-12', escalas: 1, precio: 389990, asientosDisponibles: 3 },
+  { id: 110, destinoId: 5, aerolinea: 'AeroAndes', origen: 'Santiago (SCL)', llegada: 'Cusco (CUZ)', fechaIda: '2027-02-12', fechaVuelta: '2027-02-19', escalas: 1, precio: 429990, asientosDisponibles: 8 },
+  { id: 111, destinoId: 5, aerolinea: 'Pacífico Sur', origen: 'Santiago (SCL)', llegada: 'Cusco (CUZ)', fechaIda: '2027-03-05', fechaVuelta: '2027-03-12', escalas: 1, precio: 389990, asientosDisponibles: 3 },
   // Buenos Aires
-  { id: 112, destinoId: 6, aerolinea: 'Austral Vuelos', origen: 'Santiago (SCL)', fechaIda: '2026-12-03', fechaVuelta: '2026-12-07', escalas: 0, precio: 219990, asientosDisponibles: 15 },
-  { id: 113, destinoId: 6, aerolinea: 'Cóndor Air', origen: 'Santiago (SCL)', fechaIda: '2027-01-28', fechaVuelta: '2027-02-02', escalas: 0, precio: 189990, asientosDisponibles: 0 },
-  { id: 114, destinoId: 6, aerolinea: 'AeroAndes', origen: 'Santiago (SCL)', fechaIda: '2027-01-28', fechaVuelta: '2027-02-02', escalas: 0, precio: 239990, asientosDisponibles: 6 },
+  { id: 112, destinoId: 6, aerolinea: 'Austral Vuelos', origen: 'Santiago (SCL)', llegada: 'Buenos Aires, Aeroparque (AEP)', fechaIda: '2026-12-03', fechaVuelta: '2026-12-07', escalas: 0, precio: 219990, asientosDisponibles: 15 },
+  { id: 113, destinoId: 6, aerolinea: 'Cóndor Air', origen: 'Santiago (SCL)', llegada: 'Buenos Aires, Ezeiza (EZE)', fechaIda: '2027-01-28', fechaVuelta: '2027-02-02', escalas: 0, precio: 189990, asientosDisponibles: 0 },
+  { id: 114, destinoId: 6, aerolinea: 'AeroAndes', origen: 'Santiago (SCL)', llegada: 'Buenos Aires, Ezeiza (EZE)', fechaIda: '2027-01-28', fechaVuelta: '2027-02-02', escalas: 0, precio: 239990, asientosDisponibles: 6 },
   // Cancún
-  { id: 115, destinoId: 7, aerolinea: 'Caribe Jet', origen: 'Santiago (SCL)', fechaIda: '2027-02-20', fechaVuelta: '2027-02-28', escalas: 1, precio: 789990, asientosDisponibles: 6 },
-  { id: 116, destinoId: 7, aerolinea: 'AeroAndes', origen: 'Santiago (SCL)', fechaIda: '2027-02-20', fechaVuelta: '2027-02-28', escalas: 0, precio: 949990, asientosDisponibles: 2 },
+  { id: 115, destinoId: 7, aerolinea: 'Caribe Jet', origen: 'Santiago (SCL)', llegada: 'Cancún (CUN)', fechaIda: '2027-02-20', fechaVuelta: '2027-02-28', escalas: 1, precio: 789990, asientosDisponibles: 6 },
+  { id: 116, destinoId: 7, aerolinea: 'AeroAndes', origen: 'Santiago (SCL)', llegada: 'Cancún (CUN)', fechaIda: '2027-02-20', fechaVuelta: '2027-02-28', escalas: 0, precio: 949990, asientosDisponibles: 2 },
 ]
 
 // Hoteles asociados a un destino por destinoId. precioPorNoche: CLP por habitación.

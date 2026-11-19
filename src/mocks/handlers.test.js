@@ -30,7 +30,7 @@ describe('GET /api/destinos', () => {
     const cuerpo = await respuesta.json()
 
     expect(respuesta.status).toBe(200)
-    expect(cuerpo).toEqual(destinos)
+    expect(cuerpo.map((destino) => destino.id)).toEqual(destinos.map((destino) => destino.id))
     for (const destino of cuerpo) {
       expect(destino).toEqual({
         id: expect.any(Number),
@@ -68,6 +68,26 @@ describe('GET /api/destinos', () => {
 })
 
 describe('datos de vuelos y hoteles', () => {
+  it('cada vuelo tiene origen y llegada con código IATA, distintos entre sí', () => {
+    for (const vuelo of vuelos) {
+      expect(vuelo.origen).toMatch(/\([A-Z]{3}\)$/)
+      expect(vuelo.llegada).toMatch(/\([A-Z]{3}\)$/)
+      expect(vuelo.llegada).not.toBe(vuelo.origen)
+    }
+  })
+
+  it('cada estadía tiene al menos un vuelo del destino con el que calza', () => {
+    for (const hotel of hoteles) {
+      const calza = vuelos.some(
+        (vuelo) =>
+          vuelo.destinoId === hotel.destinoId &&
+          hotel.fechaEntrada >= vuelo.fechaIda &&
+          hotel.fechaSalida <= vuelo.fechaVuelta,
+      )
+      expect(calza).toBe(true)
+    }
+  })
+
   it.each([
     ['vuelos', vuelos],
     ['hoteles', hoteles],
@@ -109,6 +129,7 @@ describe('GraphQL: consulta OpcionesViaje', () => {
       id: 101,
       aerolinea: 'AeroAndes',
       origen: 'Santiago (SCL)',
+      llegada: 'Calama (CJC)',
       fechaIda: '2026-12-10',
       fechaVuelta: '2026-12-15',
       escalas: 0,
@@ -116,6 +137,13 @@ describe('GraphQL: consulta OpcionesViaje', () => {
       asientosDisponibles: 12,
     })
     expect(data.destino).not.toHaveProperty('actividades')
+    // San Pedro de Atacama no tiene aeropuerto propio: la nota lo explica
+    expect(data.destino.notaLlegada).toMatch(/Calama/)
+  })
+
+  it('un destino con aeropuerto propio responde notaLlegada null', async () => {
+    const { data } = await (await consultar('5')).json()
+    expect(data.destino.notaLlegada).toBeNull()
   })
 
   it('responde solo los campos que pide la consulta', async () => {

@@ -1,4 +1,3 @@
-import { buildSchema, graphql as ejecutarGraphql, GraphQLError } from 'graphql'
 import { delay, graphql, http, HttpResponse } from 'msw'
 import { destinos, hoteles, vuelos } from './datos.js'
 import { leerModoSimulacion, MODOS } from './simulacion.js'
@@ -65,7 +64,7 @@ export function noEncontrado(mensaje) {
 // los campos pedidos, se agrega __typename si se pide y los errores llevan path y extensions.
 // El argumento id es ID (texto) para validarlo con convertirEntero; los ids de los tipos son
 // enteros, igual que en la API REST
-const esquema = buildSchema(`
+const ESQUEMA = `
   type Query {
     destino(id: ID!): Destino
   }
@@ -75,6 +74,8 @@ const esquema = buildSchema(`
     nombre: String!
     pais: String!
     descripcion: String!
+    "Cómo se llega cuando el destino no tiene aeropuerto propio o sus vuelos son de temporada"
+    notaLlegada: String
     actividades: [String!]!
     vuelos: [Vuelo!]!
     hoteles: [Hotel!]!
@@ -83,7 +84,10 @@ const esquema = buildSchema(`
   type Vuelo {
     id: Int!
     aerolinea: String!
+    "Ciudad y código IATA del aeropuerto de salida"
     origen: String!
+    "Ciudad y código IATA del aeropuerto de llegada"
+    llegada: String!
     fechaIda: String!
     fechaVuelta: String!
     escalas: Int!
@@ -101,31 +105,54 @@ const esquema = buildSchema(`
     precioPorNoche: Int!
     habitacionesDisponibles: Int!
   }
-`)
+`
 
 // Resolutores de la raíz. Vuelos y hoteles se resuelven solo si la consulta los pide
-const raiz = {
-  destino({ id: idTexto }) {
-    const id = convertirEntero(idTexto)
-    if (id === null) {
-      throw new GraphQLError(`El id de destino «${idTexto}» no es válido.`, {
-        extensions: { code: 'BAD_USER_INPUT' },
-      })
-    }
+function crearRaiz(GraphQLError) {
+  return {
+    destino({ id: idTexto }) {
+      const id = convertirEntero(idTexto)
+      if (id === null) {
+        throw new GraphQLError(`El id de destino «${idTexto}» no es válido.`, {
+          extensions: { code: 'BAD_USER_INPUT' },
+        })
+      }
 
-    const destino = destinos.find((item) => item.id === id)
-    if (!destino) {
-      throw new GraphQLError(`No existe un destino con el id «${idTexto}».`, {
-        extensions: { code: 'NOT_FOUND' },
-      })
-    }
+      const destino = destinos.find((item) => item.id === id)
+      if (!destino) {
+        throw new GraphQLError(`No existe un destino con el id «${idTexto}».`, {
+          extensions: { code: 'NOT_FOUND' },
+        })
+      }
 
-    return {
-      ...destino,
-      vuelos: () => vuelos.filter((vuelo) => vuelo.destinoId === id),
-      hoteles: () => hoteles.filter((hotel) => hotel.destinoId === id),
-    }
-  },
+      return {
+        ...destino,
+        notaLlegada: destino.notaLlegada ?? null,
+        vuelos: () => vuelos.filter((vuelo) => vuelo.destinoId === id),
+        hoteles: () => hoteles.filter((hotel) => hotel.destinoId === id),
+      }
+    },
+  }
+}
+
+// El ejecutor de GraphQL (graphql-js) se descarga recién con la primera consulta GraphQL:
+// main.jsx espera a que inicie MSW antes de renderizar, y así ese peso no retrasa la primera
+// carga de las páginas que no usan GraphQL. La promesa se guarda para cargarlo una sola vez
+let ejecutorGraphql
+
+function cargarEjecutorGraphql() {
+  ejecutorGraphql ??= import('graphql').then(({ buildSchema, graphql: ejecutar, GraphQLError }) => {
+    const schema = buildSchema(ESQUEMA)
+    const rootValue = crearRaiz(GraphQLError)
+    return (source, variableValues, operationName) =>
+      ejecutar({ schema, source, rootValue, variableValues, operationName })
+  })
+  return ejecutorGraphql
+}
+
+// El listado REST entrega solo los campos que muestra la página de destinos
+function resumenDestino({ id, nombre, pais, descripcion, actividades }) {
+  return { id, nombre, pais, descripcion, actividades }
 }
 
 export const handlers = [
@@ -134,7 +161,7 @@ export const handlers = [
     const falla = respuestaFallaRest(await esperarRed())
     if (falla) return falla
 
-    return HttpResponse.json(destinos)
+    return HttpResponse.json(destinos.map(resumenDestino))
   }),
 
   // Endpoint GraphQL único: cualquier operación se ejecuta contra el esquema
@@ -142,14 +169,9 @@ export const handlers = [
     const falla = respuestaFallaGraphql(await esperarRed())
     if (falla) return falla
 
-    const resultado = await ejecutarGraphql({
-      schema: esquema,
-      source: query,
-      rootValue: raiz,
-      variableValues: variables,
-      // Una consulta anónima llega con operationName vacío; graphql espera undefined
-      operationName: operationName || undefined,
-    })
+    const ejecutar = await cargarEjecutorGraphql()
+    // Una consulta anónima llega con operationName vacío; graphql espera undefined
+    const resultado = await ejecutar(query, variables, operationName || undefined)
     return HttpResponse.json(resultado)
   }),
 ]

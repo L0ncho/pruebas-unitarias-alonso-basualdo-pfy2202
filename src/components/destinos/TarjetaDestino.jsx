@@ -1,6 +1,9 @@
 import { useId } from 'react'
+import { Link } from 'react-router'
+import { clasesBoton } from '../../styles/clases.js'
 
-// Tarjeta de un destino del listado: nombre, país, descripción y actividades populares
+// Tarjeta de un destino del listado: nombre, país, descripción, actividades populares y el
+// enlace a sus vuelos y hoteles
 function TarjetaDestino({ destino }) {
   const idActividades = useId()
 
@@ -29,6 +32,9 @@ function TarjetaDestino({ destino }) {
           ))}
         </ul>
       </div>
+      <Link to={`/destinos/${destino.id}`} className={`${clasesBoton('secundario', 'compacto')} self-start`}>
+        Ver vuelos y hoteles<span className="sr-only"> de {destino.nombre}</span>
+      </Link>
     </article>
   )
 }
