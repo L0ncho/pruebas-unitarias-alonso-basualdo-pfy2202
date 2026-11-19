@@ -1,9 +1,12 @@
-import { delay, http, HttpResponse } from 'msw'
-import { destinos } from './datos.js'
+import { buildSchema, graphql as ejecutarGraphql, GraphQLError } from 'graphql'
+import { delay, graphql, http, HttpResponse } from 'msw'
+import { destinos, hoteles, vuelos } from './datos.js'
 import { leerModoSimulacion, MODOS } from './simulacion.js'
+import { convertirEntero } from '../utils/ids.js'
 
 // Rutas relativas a la base del sitio, para que funcionen también en GitHub Pages
 export const API = `${import.meta.env.BASE_URL}api`
+export const ENDPOINT_GRAPHQL = `${import.meta.env.BASE_URL}graphql`
 
 const DEMORA_MINIMA = 400
 const DEMORA_MAXIMA = 900
@@ -34,9 +37,95 @@ export function respuestaFallaRest(modo) {
   return null
 }
 
+// Respuesta GraphQL para los modos de falla; null si la petición debe responderse normal.
+// El error del servidor es un 500 con el arreglo errors y su extensions.code
+export function respuestaFallaGraphql(modo) {
+  if (modo === MODOS.sinConexion) {
+    return HttpResponse.error()
+  }
+  if (modo === MODOS.errorServidor) {
+    return HttpResponse.json(
+      {
+        errors: [
+          { message: MENSAJE_ERROR_SERVIDOR, extensions: { code: 'INTERNAL_SERVER_ERROR' } },
+        ],
+      },
+      { status: 500 },
+    )
+  }
+  return null
+}
+
 // 404 REST con cuerpo { mensaje }
 export function noEncontrado(mensaje) {
   return HttpResponse.json({ mensaje }, { status: 404 })
+}
+
+// Esquema de la API GraphQL. Las consultas se ejecutan de verdad contra él: se responden solo
+// los campos pedidos, se agrega __typename si se pide y los errores llevan path y extensions.
+// El argumento id es ID (texto) para validarlo con convertirEntero; los ids de los tipos son
+// enteros, igual que en la API REST
+const esquema = buildSchema(`
+  type Query {
+    destino(id: ID!): Destino
+  }
+
+  type Destino {
+    id: Int!
+    nombre: String!
+    pais: String!
+    descripcion: String!
+    actividades: [String!]!
+    vuelos: [Vuelo!]!
+    hoteles: [Hotel!]!
+  }
+
+  type Vuelo {
+    id: Int!
+    aerolinea: String!
+    origen: String!
+    fechaIda: String!
+    fechaVuelta: String!
+    escalas: Int!
+    precio: Int!
+    asientosDisponibles: Int!
+  }
+
+  type Hotel {
+    id: Int!
+    nombre: String!
+    estrellas: Int!
+    zona: String!
+    fechaEntrada: String!
+    fechaSalida: String!
+    precioPorNoche: Int!
+    habitacionesDisponibles: Int!
+  }
+`)
+
+// Resolutores de la raíz. Vuelos y hoteles se resuelven solo si la consulta los pide
+const raiz = {
+  destino({ id: idTexto }) {
+    const id = convertirEntero(idTexto)
+    if (id === null) {
+      throw new GraphQLError(`El id de destino «${idTexto}» no es válido.`, {
+        extensions: { code: 'BAD_USER_INPUT' },
+      })
+    }
+
+    const destino = destinos.find((item) => item.id === id)
+    if (!destino) {
+      throw new GraphQLError(`No existe un destino con el id «${idTexto}».`, {
+        extensions: { code: 'NOT_FOUND' },
+      })
+    }
+
+    return {
+      ...destino,
+      vuelos: () => vuelos.filter((vuelo) => vuelo.destinoId === id),
+      hoteles: () => hoteles.filter((hotel) => hotel.destinoId === id),
+    }
+  },
 }
 
 export const handlers = [
@@ -46,5 +135,21 @@ export const handlers = [
     if (falla) return falla
 
     return HttpResponse.json(destinos)
+  }),
+
+  // Endpoint GraphQL único: cualquier operación se ejecuta contra el esquema
+  graphql.link(ENDPOINT_GRAPHQL).operation(async ({ query, variables, operationName }) => {
+    const falla = respuestaFallaGraphql(await esperarRed())
+    if (falla) return falla
+
+    const resultado = await ejecutarGraphql({
+      schema: esquema,
+      source: query,
+      rootValue: raiz,
+      variableValues: variables,
+      // Una consulta anónima llega con operationName vacío; graphql espera undefined
+      operationName: operationName || undefined,
+    })
+    return HttpResponse.json(resultado)
   }),
 ]

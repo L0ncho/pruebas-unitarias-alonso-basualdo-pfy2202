@@ -1,3 +1,9 @@
+import {
+  CombinedGraphQLErrors,
+  ServerError,
+  ServerParseError,
+  UnconventionalError,
+} from '@apollo/client/errors'
 import { describe, expect, it } from 'vitest'
 import { errorIdInvalido, normalizarError, TIPOS_ERROR, tituloError } from './errores.js'
 
@@ -69,6 +75,88 @@ describe('normalizarError', () => {
 
   it.each([undefined, null, 'texto', 42])('%j queda como "desconocido"', (valor) => {
     expect(normalizarError(valor).tipo).toBe(TIPOS_ERROR.desconocido)
+  })
+})
+
+describe('normalizarError con errores de Apollo 4', () => {
+  // Se construyen con las clases reales de Apollo, tal como las entrega el cliente
+  function respuesta(estado) {
+    return new Response('', { status: estado })
+  }
+
+  function erroresGraphql(code, message) {
+    return new CombinedGraphQLErrors({
+      data: { destino: null },
+      errors: [{ message, path: ['destino'], extensions: { code } }],
+    })
+  }
+
+  it.each(['NOT_FOUND', 'BAD_USER_INPUT'])(
+    'CombinedGraphQLErrors con %s queda como "no-encontrado" con el mensaje del servidor',
+    (code) => {
+      expect(normalizarError(erroresGraphql(code, 'No existe un destino con el id «99».'))).toEqual({
+        tipo: TIPOS_ERROR.noEncontrado,
+        estado: null,
+        mensaje: 'No existe un destino con el id «99».',
+      })
+    },
+  )
+
+  it('CombinedGraphQLErrors con INTERNAL_SERVER_ERROR queda como "servidor"', () => {
+    const error = normalizarError(erroresGraphql('INTERNAL_SERVER_ERROR', 'Falla interna.'))
+    expect(error).toEqual({ tipo: TIPOS_ERROR.servidor, estado: null, mensaje: 'Falla interna.' })
+  })
+
+  it('CombinedGraphQLErrors sin código conocido queda como "desconocido"', () => {
+    const error = normalizarError(erroresGraphql('GRAPHQL_VALIDATION_FAILED', 'Campo inexistente.'))
+    expect(error.tipo).toBe(TIPOS_ERROR.desconocido)
+    expect(error.mensaje).toBe('Ocurrió un error inesperado. Intenta nuevamente.')
+  })
+
+  it('ServerError 500 queda como "servidor" con el mensaje del cuerpo GraphQL', () => {
+    const cuerpo = JSON.stringify({
+      errors: [{ message: 'El servidor tuvo un problema.', extensions: { code: 'INTERNAL_SERVER_ERROR' } }],
+    })
+    const error = new ServerError('Response not successful', { response: respuesta(500), bodyText: cuerpo })
+
+    expect(normalizarError(error)).toEqual({
+      tipo: TIPOS_ERROR.servidor,
+      estado: 500,
+      mensaje: 'El servidor tuvo un problema.',
+    })
+  })
+
+  it('ServerError 404 sin cuerpo queda como "no-encontrado" con el mensaje por defecto', () => {
+    const error = new ServerError('Response not successful', { response: respuesta(404), bodyText: '' })
+    expect(normalizarError(error)).toEqual({
+      tipo: TIPOS_ERROR.noEncontrado,
+      estado: 404,
+      mensaje: 'No encontramos lo que buscas.',
+    })
+  })
+
+  it('ServerParseError queda como "desconocido" por formato inválido', () => {
+    const error = new ServerParseError(new SyntaxError('Unexpected token'), {
+      response: respuesta(200),
+      bodyText: '{ esto no es json',
+    })
+    expect(normalizarError(error)).toMatchObject({
+      tipo: TIPOS_ERROR.desconocido,
+      mensaje: expect.stringMatching(/formato válido/),
+    })
+  })
+
+  it('UnconventionalError queda como "desconocido"', () => {
+    expect(normalizarError(new UnconventionalError(Symbol('raro'))).tipo).toBe(TIPOS_ERROR.desconocido)
+  })
+
+  it('la falla de red marcada por el cliente Apollo queda como "red"', () => {
+    const error = Object.assign(new Error('No se pudo conectar con el servidor.'), { red: true })
+    expect(normalizarError(error).tipo).toBe(TIPOS_ERROR.red)
+  })
+
+  it('una cancelación (AbortError que Apollo deja pasar) queda como "cancelado"', () => {
+    expect(normalizarError(new DOMException('Abortado', 'AbortError')).tipo).toBe(TIPOS_ERROR.cancelado)
   })
 })
 

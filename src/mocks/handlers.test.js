@@ -1,10 +1,13 @@
+import { print } from 'graphql'
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
-import { destinos } from './datos.js'
+import { destinos, hoteles, vuelos } from './datos.js'
+import { ENDPOINT_GRAPHQL } from './handlers.js'
 import { guardarModoSimulacion, MODOS } from './simulacion.js'
+import { OPCIONES_VIAJE } from '../services/consultas.js'
 import { crearAlmacenamiento } from '../test/almacenamiento.js'
 import { API, crearServidor } from '../test/servidor.js'
 
-// Pruebas de los handlers REST reales con msw/node, sin pasar por el cliente HTTP:
+// Pruebas de los handlers REST y GraphQL reales con msw/node, sin pasar por los clientes:
 // así se verifica la respuesta tal como la entrega la API simulada
 
 const server = crearServidor()
@@ -61,5 +64,121 @@ describe('GET /api/destinos', () => {
     guardarModoSimulacion(MODOS.sinConexion)
 
     await expect(fetch(`${API}/destinos`)).rejects.toThrow(TypeError)
+  })
+})
+
+describe('datos de vuelos y hoteles', () => {
+  it.each([
+    ['vuelos', vuelos],
+    ['hoteles', hoteles],
+  ])('los %s tienen ids únicos y un destinoId existente', (_nombre, lista) => {
+    const ids = lista.map((item) => item.id)
+    const idsDestinos = new Set(destinos.map((destino) => destino.id))
+
+    expect(new Set(ids).size).toBe(ids.length)
+    expect(lista.every((item) => idsDestinos.has(item.destinoId))).toBe(true)
+  })
+
+  it('hay vuelos y hoteles sin disponibilidad', () => {
+    expect(vuelos.some((vuelo) => vuelo.asientosDisponibles === 0)).toBe(true)
+    expect(hoteles.some((hotel) => hotel.habitacionesDisponibles === 0)).toBe(true)
+  })
+})
+
+describe('GraphQL: consulta OpcionesViaje', () => {
+  // Petición GraphQL tal como la envía un cliente: POST con la consulta en texto
+  async function consultar(id, consulta = print(OPCIONES_VIAJE)) {
+    return fetch(ENDPOINT_GRAPHQL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: consulta, variables: { id } }),
+    })
+  }
+
+  it('trae el destino con sus vuelos y hoteles en una sola respuesta', async () => {
+    const respuesta = await consultar('1')
+    const { data, errors } = await respuesta.json()
+
+    expect(respuesta.status).toBe(200)
+    expect(errors).toBeUndefined()
+    expect(data.destino).toMatchObject({ id: 1, nombre: 'San Pedro de Atacama', pais: 'Chile' })
+    expect(data.destino.vuelos.map((vuelo) => vuelo.id)).toEqual([101, 102, 103])
+    expect(data.destino.hoteles.map((hotel) => hotel.id)).toEqual([201, 202, 203])
+    // Solo los campos pedidos: destinoId no es parte del esquema y actividades no se pidió
+    expect(data.destino.vuelos[0]).toEqual({
+      id: 101,
+      aerolinea: 'AeroAndes',
+      origen: 'Santiago (SCL)',
+      fechaIda: '2026-12-10',
+      fechaVuelta: '2026-12-15',
+      escalas: 0,
+      precio: 189990,
+      asientosDisponibles: 12,
+    })
+    expect(data.destino).not.toHaveProperty('actividades')
+  })
+
+  it('responde solo los campos que pide la consulta', async () => {
+    const respuesta = await consultar('2', 'query ($id: ID!) { destino(id: $id) { nombre } }')
+    expect(await respuesta.json()).toEqual({ data: { destino: { nombre: 'Rapa Nui' } } })
+  })
+
+  it('un destino sin oferta responde listas vacías, sin error', async () => {
+    const { data, errors } = await (await consultar('8')).json()
+
+    expect(errors).toBeUndefined()
+    expect(data.destino).toMatchObject({ id: 8, nombre: 'Madrid', vuelos: [], hoteles: [] })
+  })
+
+  it('"7" y "007" son el mismo destino', async () => {
+    const siete = await (await consultar('7')).json()
+    const conCeros = await (await consultar('007')).json()
+
+    expect(conCeros).toEqual(siete)
+    expect(siete.data.destino.id).toBe(7)
+  })
+
+  it('un id inexistente responde destino null y un error NOT_FOUND', async () => {
+    const respuesta = await consultar('99')
+    const { data, errors } = await respuesta.json()
+
+    expect(respuesta.status).toBe(200)
+    expect(data).toEqual({ destino: null })
+    expect(errors).toEqual([
+      expect.objectContaining({
+        message: 'No existe un destino con el id «99».',
+        path: ['destino'],
+        extensions: { code: 'NOT_FOUND' },
+      }),
+    ])
+  })
+
+  it.each(['abc', '0', '-1', '1.5'])('el id inválido %j responde un error BAD_USER_INPUT', async (id) => {
+    const { data, errors } = await (await consultar(id)).json()
+
+    expect(data).toEqual({ destino: null })
+    expect(errors[0].extensions).toEqual({ code: 'BAD_USER_INPUT' })
+  })
+
+  it('en modo "error del servidor" responde 500 con errors e INTERNAL_SERVER_ERROR', async () => {
+    guardarModoSimulacion(MODOS.errorServidor)
+
+    const respuesta = await consultar('1')
+
+    expect(respuesta.status).toBe(500)
+    expect(await respuesta.json()).toEqual({
+      errors: [
+        {
+          message: expect.stringMatching(/servidor/),
+          extensions: { code: 'INTERNAL_SERVER_ERROR' },
+        },
+      ],
+    })
+  })
+
+  it('en modo "sin conexión" la petición falla como un error de red', async () => {
+    guardarModoSimulacion(MODOS.sinConexion)
+
+    await expect(consultar('1')).rejects.toThrow(TypeError)
   })
 })

@@ -38,11 +38,52 @@ function mensajeOPorDefecto(mensaje, porDefecto) {
   return typeof mensaje === 'string' && mensaje.trim() !== '' ? mensaje : porDefecto
 }
 
+// Códigos de extensions.code de la API GraphQL y el tipo en que se traducen
+const TIPO_POR_CODIGO_GRAPHQL = {
+  NOT_FOUND: TIPOS_ERROR.noEncontrado,
+  BAD_USER_INPUT: TIPOS_ERROR.noEncontrado,
+  INTERNAL_SERVER_ERROR: TIPOS_ERROR.servidor,
+}
+
+// Errores de Apollo Client 4. Se reconocen por name y sus propiedades, sin importar Apollo:
+// este archivo lo usa también el cliente REST, que no debe cargar Apollo
+function esErrorApollo(error, nombre) {
+  return typeof error === 'object' && error !== null && error.name === nombre
+}
+
+// Primer mensaje del arreglo errors de un cuerpo GraphQL en texto (de un ServerError)
+function mensajeCuerpoGraphql(texto) {
+  try {
+    const mensaje = JSON.parse(texto)?.errors?.[0]?.message
+    return typeof mensaje === 'string' ? mensaje : undefined
+  } catch {
+    return undefined
+  }
+}
+
+// CombinedGraphQLErrors: errores en el arreglo errors de una respuesta 200. Manda el primer
+// error con extensions.code; un código no previsto queda como "desconocido"
+function normalizarErroresGraphql(errores) {
+  const conCodigo = errores.find((item) => typeof item?.extensions?.code === 'string')
+  const tipo = TIPO_POR_CODIGO_GRAPHQL[conCodigo?.extensions.code] ?? TIPOS_ERROR.desconocido
+  const mensaje = conCodigo?.message
+
+  if (tipo === TIPOS_ERROR.noEncontrado) {
+    return crear(tipo, null, mensajeOPorDefecto(mensaje, MENSAJES.noEncontrado))
+  }
+  if (tipo === TIPOS_ERROR.servidor) {
+    return crear(tipo, null, mensajeOPorDefecto(mensaje, MENSAJES.servidor))
+  }
+  return crear(TIPOS_ERROR.desconocido, null, MENSAJES.desconocido)
+}
+
 // Acepta:
 // - un error ya normalizado (se devuelve igual)
-// - { red: true }: el cliente HTTP lo usa solo cuando fetch rechaza (falla de red)
+// - { red: true }: los clientes REST y Apollo lo usan solo cuando fetch rechaza (falla de red)
 // - { estado, mensaje }: respuesta HTTP no exitosa; si el servidor envió un mensaje, se usa ese
 // - un AbortError (cancelación) o un SyntaxError (JSON inválido)
+// - errores de Apollo 4: CombinedGraphQLErrors (según extensions.code), ServerError (según su
+//   código HTTP, igual que REST) y ServerParseError (formato inválido)
 // Cualquier otro error, incluido un TypeError del propio código, queda como "desconocido"
 // para no pedir al usuario que revise su conexión ante un error de programación
 export function normalizarError(error) {
@@ -54,6 +95,21 @@ export function normalizarError(error) {
 
   if (error?.red === true) {
     return crear(TIPOS_ERROR.red, null, MENSAJES.red)
+  }
+
+  if (esErrorApollo(error, 'CombinedGraphQLErrors') && Array.isArray(error.errors)) {
+    return normalizarErroresGraphql(error.errors)
+  }
+
+  if (esErrorApollo(error, 'ServerError') && Number.isInteger(error.statusCode)) {
+    return normalizarError({
+      estado: error.statusCode,
+      mensaje: mensajeCuerpoGraphql(error.bodyText),
+    })
+  }
+
+  if (esErrorApollo(error, 'ServerParseError')) {
+    return crear(TIPOS_ERROR.desconocido, null, MENSAJES.formatoInvalido)
   }
 
   if (Number.isInteger(error?.estado)) {
