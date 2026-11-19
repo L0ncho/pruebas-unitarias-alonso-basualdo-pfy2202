@@ -111,7 +111,12 @@ function ContenidoDestino({ id }) {
               </GrupoOpciones>
             </div>
 
-            <ResumenViaje vuelo={vuelo} hotel={hotel} onLimpiar={limpiarSeleccion} />
+            <ResumenViaje
+              pais={destino.pais}
+              vuelo={vuelo}
+              hotel={hotel}
+              onLimpiar={limpiarSeleccion}
+            />
           </div>
         )}
       </div>

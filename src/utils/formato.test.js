@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   formatearDisponibles,
+  formatearDuracion,
   formatearEscalas,
   formatearFecha,
   formatearNoches,
@@ -53,5 +54,17 @@ describe('formatearDisponibles', () => {
     [12, '12 asientos disponibles'],
   ])('con %j devuelve %j', (cantidad, esperado) => {
     expect(formatearDisponibles(cantidad, 'asiento', 'asientos')).toBe(esperado)
+  })
+})
+
+describe('formatearDuracion', () => {
+  it.each([
+    [125, '2 h 5 min'],
+    [180, '3 h'],
+    [45, '45 min'],
+    [680, '11 h 20 min'],
+    [60, '1 h'],
+  ])('con %i minutos devuelve %j', (minutos, esperado) => {
+    expect(formatearDuracion(minutos)).toBe(esperado)
   })
 })

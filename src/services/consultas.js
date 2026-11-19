@@ -17,7 +17,13 @@ export const OPCIONES_VIAJE = gql`
         origen
         llegada
         fechaIda
+        horaSalidaIda
+        horaLlegadaIda
+        duracionIdaMinutos
         fechaVuelta
+        horaSalidaVuelta
+        horaLlegadaVuelta
+        duracionVueltaMinutos
         escalas
         precio
         asientosDisponibles

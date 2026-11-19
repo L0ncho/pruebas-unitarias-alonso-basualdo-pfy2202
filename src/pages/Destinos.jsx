@@ -1,16 +1,46 @@
-import { Link } from 'react-router'
+import { Link, useSearchParams } from 'react-router'
 import Aviso from '../components/Aviso.jsx'
 import AvisoErrorConsulta from '../components/AvisoErrorConsulta.jsx'
 import Boton from '../components/Boton.jsx'
 import Cargando from '../components/Cargando.jsx'
 import TituloPagina from '../components/TituloPagina.jsx'
+import FiltroRegion from '../components/destinos/FiltroRegion.jsx'
 import TarjetaDestino from '../components/destinos/TarjetaDestino.jsx'
 import { useDestinos } from '../hooks/useDestinos.js'
+import {
+  filtrarDestinos,
+  normalizarRegion,
+  REGIONES,
+  textoResultadoFiltro,
+} from '../utils/destinos.js'
 
 const SALIDA = { to: '/', texto: 'Volver al inicio' }
+const PARAMETRO_REGION = 'region'
 
 function Destinos() {
   const { datos: destinos, cargando, error, reintentar } = useDestinos()
+  // El filtro vive en la URL (?region=nacionales): se puede compartir y sobrevive a la recarga.
+  // Un valor desconocido se trata como "todos"
+  const [parametros, setParametros] = useSearchParams()
+  const region = normalizarRegion(parametros.get(PARAMETRO_REGION))
+  // Estado derivado: la lista filtrada se calcula, no se guarda
+  const destinosFiltrados = destinos ? filtrarDestinos(destinos, region) : []
+
+  // replace: cambiar el filtro no agrega entradas al historial ("Volver" no recorre filtros)
+  function cambiarRegion(nuevaRegion) {
+    setParametros(
+      (actuales) => {
+        const siguientes = new URLSearchParams(actuales)
+        if (nuevaRegion === REGIONES.todos) {
+          siguientes.delete(PARAMETRO_REGION)
+        } else {
+          siguientes.set(PARAMETRO_REGION, nuevaRegion)
+        }
+        return siguientes
+      },
+      { replace: true },
+    )
+  }
 
   return (
     <section>
@@ -40,13 +70,29 @@ function Destinos() {
         )}
 
         {destinos?.length > 0 && (
-          <ul className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
-            {destinos.map((destino) => (
-              <li key={destino.id}>
-                <TarjetaDestino destino={destino} />
-              </li>
-            ))}
-          </ul>
+          <>
+            <FiltroRegion region={region} onCambiar={cambiarRegion} />
+            <p aria-live="polite" className="mb-4 text-sm text-texto-suave">
+              {textoResultadoFiltro(destinosFiltrados.length, destinos.length)}
+            </p>
+
+            {destinosFiltrados.length === 0 ? (
+              <p className="text-texto">
+                No hay destinos en esta región.{' '}
+                <Link to="/destinos" replace>
+                  Ver todos los destinos
+                </Link>
+              </p>
+            ) : (
+              <ul className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
+                {destinosFiltrados.map((destino) => (
+                  <li key={destino.id}>
+                    <TarjetaDestino destino={destino} />
+                  </li>
+                ))}
+              </ul>
+            )}
+          </>
         )}
       </div>
     </section>

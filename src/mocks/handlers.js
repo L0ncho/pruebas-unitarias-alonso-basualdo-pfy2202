@@ -89,7 +89,16 @@ const ESQUEMA = `
     "Ciudad y código IATA del aeropuerto de llegada"
     llegada: String!
     fechaIda: String!
+    "Hora local del aeropuerto de origen (HH:MM)"
+    horaSalidaIda: String!
+    "Hora local del aeropuerto de llegada (HH:MM)"
+    horaLlegadaIda: String!
+    "Duración del tramo en minutos (con escalas): no se calcula restando horas por los husos horarios"
+    duracionIdaMinutos: Int!
     fechaVuelta: String!
+    horaSalidaVuelta: String!
+    horaLlegadaVuelta: String!
+    duracionVueltaMinutos: Int!
     escalas: Int!
     precio: Int!
     asientosDisponibles: Int!

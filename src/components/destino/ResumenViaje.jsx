@@ -1,8 +1,10 @@
 import { useId } from 'react'
 import Boton from '../Boton.jsx'
+import HorarioTramo from './HorarioTramo.jsx'
 import { formatearFecha, formatearNoches, formatearPrecio } from '../../utils/formato.js'
 import {
   fechasCalzan,
+  horasAnticipacionAeropuerto,
   nochesHotel,
   nochesViaje,
   totalEstadia,
@@ -13,8 +15,9 @@ const clasesTermino = 'text-sm font-semibold text-texto-suave'
 const clasesFaltante = 'text-texto-suave italic'
 
 // Resumen de la cotización con lo elegido. Todo se calcula a partir del vuelo y el hotel;
-// nada se guarda. vuelo y hotel son undefined mientras no se elijan
-function ResumenViaje({ vuelo, hotel, onLimpiar }) {
+// nada se guarda. vuelo y hotel son undefined mientras no se elijan. pais (del destino)
+// decide la anticipación recomendada para llegar al aeropuerto
+function ResumenViaje({ pais, vuelo, hotel, onLimpiar }) {
   const idTitulo = useId()
   const hayAlgo = Boolean(vuelo || hotel)
   const completo = Boolean(vuelo && hotel)
@@ -38,11 +41,20 @@ function ResumenViaje({ vuelo, hotel, onLimpiar }) {
             {vuelo ? (
               <dd>
                 {vuelo.aerolinea}
-                <br />
-                <span className="text-sm text-texto-suave">
-                  {formatearFecha(vuelo.fechaIda)} al {formatearFecha(vuelo.fechaVuelta)}
+                <span className="flex flex-col text-sm text-texto-suave">
+                  <span>Ida: {formatearFecha(vuelo.fechaIda)}</span>
+                  <HorarioTramo
+                    salida={vuelo.horaSalidaIda}
+                    llegada={vuelo.horaLlegadaIda}
+                    duracionMinutos={vuelo.duracionIdaMinutos}
+                  />
+                  <span>Vuelta: {formatearFecha(vuelo.fechaVuelta)}</span>
+                  <HorarioTramo
+                    salida={vuelo.horaSalidaVuelta}
+                    llegada={vuelo.horaLlegadaVuelta}
+                    duracionMinutos={vuelo.duracionVueltaMinutos}
+                  />
                 </span>
-                <br />
                 {formatearPrecio(vuelo.precio)}
               </dd>
             ) : (
@@ -99,6 +111,13 @@ function ResumenViaje({ vuelo, hotel, onLimpiar }) {
           </p>
         )}
       </div>
+
+      {vuelo && (
+        <p className="mb-4 text-sm text-texto">
+          Te recomendamos llegar al aeropuerto con {horasAnticipacionAeropuerto(pais)} horas de
+          anticipación para el check-in y los controles. Revisa las indicaciones de tu aerolínea.
+        </p>
+      )}
 
       <p className="mb-4 text-sm text-texto-suave">
         Cotización simulada: no se realiza ninguna reserva.

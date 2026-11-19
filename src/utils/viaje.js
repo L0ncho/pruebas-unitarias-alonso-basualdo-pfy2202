@@ -1,3 +1,5 @@
+import { esDestinoNacional } from './destinos.js'
+
 // Cálculos de la cotización del viaje: funciones puras sobre los datos de la API.
 // La cotización es para 1 pasajero y 1 habitación. Las fechas son ISO sin hora ("2026-12-15")
 
@@ -39,4 +41,10 @@ export function fechasCalzan(vuelo, hotel) {
 // Una opción se puede elegir si le queda al menos un asiento o una habitación
 export function estaDisponible(cantidad) {
   return Number.isInteger(cantidad) && cantidad > 0
+}
+
+// Anticipación recomendada para llegar al aeropuerto: 2 horas en vuelos nacionales y 3 en
+// internacionales. Se decide por el país del destino
+export function horasAnticipacionAeropuerto(pais) {
+  return esDestinoNacional(pais) ? 2 : 3
 }

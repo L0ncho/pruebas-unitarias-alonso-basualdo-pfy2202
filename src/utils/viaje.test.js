@@ -3,6 +3,7 @@ import {
   calcularNoches,
   estaDisponible,
   fechasCalzan,
+  horasAnticipacionAeropuerto,
   nochesHotel,
   nochesViaje,
   totalEstadia,
@@ -85,5 +86,15 @@ describe('estaDisponible', () => {
     [undefined, false],
   ])('con %j devuelve %j', (cantidad, esperado) => {
     expect(estaDisponible(cantidad)).toBe(esperado)
+  })
+})
+
+describe('horasAnticipacionAeropuerto', () => {
+  it('recomienda 2 horas para un destino nacional (Chile)', () => {
+    expect(horasAnticipacionAeropuerto('Chile')).toBe(2)
+  })
+
+  it.each(['Perú', 'Argentina', 'México', 'España'])('recomienda 3 horas para %s', (pais) => {
+    expect(horasAnticipacionAeropuerto(pais)).toBe(3)
   })
 })

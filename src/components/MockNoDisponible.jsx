@@ -29,7 +29,7 @@ const AVISOS = {
 
 const PASOS_SERVICE_WORKER = [
   'Abre el sitio en una ventana normal, no privada.',
-  'O ábrelo en otro navegador, como Chrome o Edge.',
+  'O ábrelo en otro navegador.',
   'Si bloqueaste los Service Workers, las cookies o el almacenamiento para este sitio, permítelos y recarga la página.',
 ]
 

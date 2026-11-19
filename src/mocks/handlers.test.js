@@ -68,6 +68,54 @@ describe('GET /api/destinos', () => {
 })
 
 describe('datos de vuelos y hoteles', () => {
+  // Diferencia con UTC de cada aeropuerto entre diciembre de 2026 y marzo de 2027 (Chile
+  // continental en horario de verano). Solo para verificar los datos: la app no la usa
+  const UTC_POR_AEROPUERTO = {
+    SCL: -3, CJC: -3, ANF: -3, PMC: -3, PNT: -3, AEP: -3, EZE: -3, IPC: -5, CUZ: -5, CUN: -5,
+  }
+  const codigo = (aeropuerto) => aeropuerto.match(/\(([A-Z]{3})\)$/)[1]
+  const minutos = (hora) => Number(hora.slice(0, 2)) * 60 + Number(hora.slice(3))
+
+  // Hora local de llegada (en minutos desde la medianoche del día de salida) según la salida,
+  // la duración y los husos horarios de ambos aeropuertos
+  function llegadaCalculada(salida, duracion, desde, hasta) {
+    const utcSalida = minutos(salida) - UTC_POR_AEROPUERTO[desde] * 60
+    return utcSalida + duracion + UTC_POR_AEROPUERTO[hasta] * 60
+  }
+
+  it.each(vuelos.map((vuelo) => [vuelo.id, vuelo]))(
+    'el vuelo %i tiene horas HH:MM coherentes con la duración y llega el mismo día',
+    (_id, vuelo) => {
+      const origen = codigo(vuelo.origen)
+      const destino = codigo(vuelo.llegada)
+      const tramos = [
+        [vuelo.horaSalidaIda, vuelo.horaLlegadaIda, vuelo.duracionIdaMinutos, origen, destino],
+        [vuelo.horaSalidaVuelta, vuelo.horaLlegadaVuelta, vuelo.duracionVueltaMinutos, destino, origen],
+      ]
+
+      for (const [salida, llegada, duracion, desde, hasta] of tramos) {
+        expect(salida).toMatch(/^([01]\d|2[0-3]):[0-5]\d$/)
+        expect(llegada).toMatch(/^([01]\d|2[0-3]):[0-5]\d$/)
+        expect(Number.isInteger(duracion) && duracion > 0).toBe(true)
+        const calculada = llegadaCalculada(salida, duracion, desde, hasta)
+        expect(calculada).toBe(minutos(llegada))
+        expect(calculada).toBeLessThan(24 * 60)
+      }
+    },
+  )
+
+  it('un vuelo con escalas dura más que uno directo de la misma ruta', () => {
+    for (const conEscala of vuelos.filter((vuelo) => vuelo.escalas > 0)) {
+      const directos = vuelos.filter(
+        (vuelo) =>
+          vuelo.escalas === 0 && vuelo.origen === conEscala.origen && vuelo.llegada === conEscala.llegada,
+      )
+      for (const directo of directos) {
+        expect(conEscala.duracionIdaMinutos).toBeGreaterThan(directo.duracionIdaMinutos)
+      }
+    }
+  })
+
   it('cada vuelo tiene origen y llegada con código IATA, distintos entre sí', () => {
     for (const vuelo of vuelos) {
       expect(vuelo.origen).toMatch(/\([A-Z]{3}\)$/)
@@ -131,7 +179,13 @@ describe('GraphQL: consulta OpcionesViaje', () => {
       origen: 'Santiago (SCL)',
       llegada: 'Calama (CJC)',
       fechaIda: '2026-12-10',
+      horaSalidaIda: '07:10',
+      horaLlegadaIda: '09:15',
+      duracionIdaMinutos: 125,
       fechaVuelta: '2026-12-15',
+      horaSalidaVuelta: '18:40',
+      horaLlegadaVuelta: '20:45',
+      duracionVueltaMinutos: 125,
       escalas: 0,
       precio: 189990,
       asientosDisponibles: 12,

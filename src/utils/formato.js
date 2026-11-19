@@ -40,3 +40,11 @@ export function formatearNoches(noches) {
 export function formatearDisponibles(cantidad, singular, plural) {
   return cantidad === 1 ? `1 ${singular} disponible` : `${cantidad} ${plural} disponibles`
 }
+
+// Duración en minutos: 125 → "2 h 5 min", 180 → "3 h", 45 → "45 min"
+export function formatearDuracion(minutos) {
+  const horas = Math.floor(minutos / 60)
+  const resto = minutos % 60
+  if (horas === 0) return `${resto} min`
+  return resto === 0 ? `${horas} h` : `${horas} h ${resto} min`
+}

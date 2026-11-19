@@ -1,4 +1,5 @@
 import { useId } from 'react'
+import HorarioTramo from './HorarioTramo.jsx'
 import {
   formatearDisponibles,
   formatearEscalas,
@@ -40,11 +41,23 @@ function OpcionVuelo({ vuelo, nombreGrupo, seleccionado, onElegir }) {
           </span>
         </span>
         <span id={idDetalle} className="flex flex-col gap-1 text-sm">
-          <span className="text-texto-suave">
-            Ida: {formatearFecha(vuelo.fechaIda)}
-            <br />
-            Vuelta: {formatearFecha(vuelo.fechaVuelta)}
+          <span className="flex flex-col text-texto-suave">
+            <span>Ida: {formatearFecha(vuelo.fechaIda)}</span>
+            <HorarioTramo
+              salida={vuelo.horaSalidaIda}
+              llegada={vuelo.horaLlegadaIda}
+              duracionMinutos={vuelo.duracionIdaMinutos}
+            />
           </span>
+          <span className="flex flex-col text-texto-suave">
+            <span>Vuelta: {formatearFecha(vuelo.fechaVuelta)}</span>
+            <HorarioTramo
+              salida={vuelo.horaSalidaVuelta}
+              llegada={vuelo.horaLlegadaVuelta}
+              duracionMinutos={vuelo.duracionVueltaMinutos}
+            />
+          </span>
+          <span className="text-xs text-texto-suave">Horas locales de cada aeropuerto.</span>
           <span className="text-texto-suave">{formatearEscalas(vuelo.escalas)}</span>
           <span>
             <span className="text-lg font-bold text-acento">{formatearPrecio(vuelo.precio)}</span>{' '}
