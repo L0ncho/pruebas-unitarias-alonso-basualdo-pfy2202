@@ -10,7 +10,8 @@
     />
     <title>AirFly · Vuelos y hoteles para tu próximo viaje</title>
     <!-- Aplica el tema antes de que cargue React para evitar un destello del tema claro.
-         Usa la misma clave que BotonTema -->
+         Usa la misma clave que src/utils/tema.js. Leer localStorage va en try/catch: con el
+         almacenamiento bloqueado lanza SecurityError y se sigue la preferencia del sistema -->
     <script>
       (function () {
         var tema = null

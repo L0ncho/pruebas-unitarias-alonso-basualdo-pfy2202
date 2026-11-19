@@ -1,3 +1,5 @@
+import { ALMACENES, guardarAlmacenamiento, leerAlmacenamiento } from '../utils/almacenamiento.js'
+
 // Único lugar donde se definen la clave y los modos de simulación de la API.
 // Lo usan los handlers (para decidir la respuesta) y el selector del pie (para cambiar el modo)
 export const CLAVE_SIMULACION = 'airfly-simulacion'
@@ -18,21 +20,15 @@ export const OPCIONES_SIMULACION = [
 
 const valoresValidos = new Set(Object.values(MODOS))
 
-// Si no hay modo guardado, no es válido o sessionStorage no está disponible, se usa "normal"
+// Si no hay modo guardado, no es válido o sessionStorage no está disponible (bloqueado o
+// inexistente), se usa "normal"
 export function leerModoSimulacion() {
-  try {
-    const guardado = sessionStorage.getItem(CLAVE_SIMULACION)
-    return valoresValidos.has(guardado) ? guardado : MODOS.normal
-  } catch {
-    return MODOS.normal
-  }
+  const guardado = leerAlmacenamiento(ALMACENES.sesion, CLAVE_SIMULACION)
+  return valoresValidos.has(guardado) ? guardado : MODOS.normal
 }
 
+// Sin acceso a sessionStorage no se guarda: la simulación sigue en modo normal
 export function guardarModoSimulacion(modo) {
   if (!valoresValidos.has(modo)) return
-  try {
-    sessionStorage.setItem(CLAVE_SIMULACION, modo)
-  } catch {
-    // Sin acceso a sessionStorage: la simulación queda en modo normal
-  }
+  guardarAlmacenamiento(ALMACENES.sesion, CLAVE_SIMULACION, modo)
 }
