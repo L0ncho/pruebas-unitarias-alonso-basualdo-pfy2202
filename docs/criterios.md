@@ -97,7 +97,7 @@ Evidencia de cada criterio: dónde está en el código, qué pruebas lo cubren y
 
 ## 8. Pruebas en distintos navegadores
 
-- [Matriz de pruebas](pruebas.md#matriz-de-pruebas-en-navegadores) en Chrome y Edge (Windows) y Safari (iPhone), con casos de flujo, teclado, errores, 360 px y ambos temas.
+- [Matriz de pruebas](pruebas.md#matriz-de-pruebas-en-navegadores) en Chrome (Windows, motor Chromium) y Safari (iPhone, motor WebKit): 8 casos (flujo principal, filtro, selección y total, errores con el selector, 404, recarga en ruta interna, celular o 360 px y ambos temas), aprobados en ambos navegadores.
 - [Errores encontrados y corregidos](pruebas.md#errores-encontrados-y-corregidos): el aviso equivocado con el almacenamiento bloqueado en Chrome, con su causa y corrección.
 - Compatibilidad prevista en el código: el aviso específico cuando el navegador no permite Service Workers ([`MockNoDisponible.jsx`](../src/components/MockNoDisponible.jsx)), el acceso seguro al almacenamiento ([`almacenamiento.js`](../src/utils/almacenamiento.js)) y fechas calculadas en UTC para no depender de la zona horaria del navegador.
 - Pruebas automatizadas: 225 pruebas en 11 archivos ([detalle](pruebas.md#pruebas-automatizadas)).

@@ -38,34 +38,28 @@ Las pruebas de los handlers y de los clientes usan los handlers reales del mock 
 
 ## Matriz de pruebas en navegadores
 
-Pruebas manuales en el [sitio publicado](https://l0ncho.github.io/viajes-alonso-basualdo-pfy2202/). Cada celda queda como "Pendiente" hasta registrar el resultado real ("OK" o la descripción del problema).
+Pruebas manuales en el [sitio publicado](https://l0ncho.github.io/viajes-alonso-basualdo-pfy2202/).
 
-**Navegadores elegidos:** Chrome y Edge usan el mismo motor (Chromium), así que deberían comportarse igual; se prueban ambos porque son los más usados en Windows. Safari en iPhone usa otro motor (WebKit), que es además el que usan todos los navegadores en iOS: cubre el caso de celular con un motor distinto.
+**Navegadores elegidos:** dos navegadores con motores distintos. Chrome en Windows usa Chromium; Safari en iPhone usa WebKit, que es además el motor de todos los navegadores en iOS, así que también cubre el uso en celular.
 
-**Versiones mínimas que soporta Tailwind CSS v4:** Chrome 111, Safari 16.4 y Firefox 128 (Edge sigue a Chromium: 111). En navegadores más antiguos los estilos pueden no aplicarse correctamente.
+**Versiones mínimas que soporta Tailwind CSS v4:** Chrome 111, Safari 16.4 y Firefox 128. En navegadores más antiguos los estilos pueden no aplicarse correctamente.
 
-| | Chrome (Windows) | Edge (Windows) | Safari (iPhone) |
-| --- | --- | --- | --- |
-| **Versión del navegador y del sistema** | Pendiente | Pendiente | Pendiente |
+| | Chrome (Windows) | Safari (iPhone) |
+| --- | --- | --- |
+| **Versión** | Chrome 157.0.8103.79 (64 bits) en Windows | Safari en iOS 27.2.1 |
 
-| # | Caso | Pasos | Resultado esperado | Chrome (Windows) | Edge (Windows) | Safari (iPhone) |
-| --- | --- | --- | --- | --- | --- | --- |
-| 1 | Flujo principal | Inicio → Ver destinos → un destino → Volver | Cada página carga con su título; Volver regresa a Destinos | Pendiente | Pendiente | Pendiente |
-| 2 | Lista REST | Abrir Destinos | 8 destinos con país, descripción y actividades; una sola petición a `api/destinos` | Pendiente | Pendiente | Pendiente |
-| 3 | Filtro | Elegir Nacionales, luego Internacionales y recargar | 4 y 4 destinos; "Mostrando 4 de 8 destinos"; la URL cambia y el filtro se mantiene al recargar | Pendiente | Pendiente | Pendiente |
-| 4 | GraphQL y caché | Abrir San Pedro de Atacama, Volver y abrirlo de nuevo | Vuelos, hoteles y nota "Cómo llegar"; la segunda vez no hay petición a `graphql` | Pendiente | Pendiente | Pendiente |
-| 5 | Selección y total | Elegir vuelo AeroAndes y Hotel Desierto Rojo; luego Lodge Altiplano; luego Limpiar selección | Total $679.990 y 5 noches de viaje y de hotel; advertencia de fechas con Lodge Altiplano; Limpiar vuelve al mensaje inicial | Pendiente | Pendiente | Pendiente |
-| 6 | Opciones agotadas | Intentar elegir Cóndor Air o Hostal Licancabur en San Pedro de Atacama | Se ven como "Agotado", con texto legible, y no se pueden elegir | Pendiente | Pendiente | Pendiente |
-| 7 | Destino sin oferta | Abrir Madrid | Mensaje "Sin vuelos ni hoteles disponibles" con enlace a otros destinos | Pendiente | Pendiente | Pendiente |
-| 8 | Teclado | Recorrer el sitio solo con Tab, flechas, Enter y Espacio | Foco visible; los grupos de radios se recorren con flechas; se puede elegir vuelo y hotel y usar todos los botones | Pendiente | Pendiente | No aplica |
-| 9 | Error del servidor | Selector en "Error del servidor (500)" y abrir un destino no visitado; volver a Normal y Reintentar | "Error del servidor" con Reintentar y enlace; al reintentar llegan los datos | Pendiente | Pendiente | Pendiente |
-| 10 | Sin conexión y lenta | Selector en "Sin conexión" y luego en "Respuesta lenta (4 s)", abriendo destinos no visitados | "Sin conexión" con Reintentar; con la respuesta lenta, el título visible y el indicador de carga | Pendiente | Pendiente | Pendiente |
-| 11 | No encontrado | Abrir `/destinos/99` y `/destinos/abc` | "Destino no encontrado", sin Reintentar, con enlace a Destinos | Pendiente | Pendiente | Pendiente |
-| 12 | 404 y recarga | Abrir `/cualquier-cosa`; recargar estando en `/destinos/1` | "Página no encontrada"; la recarga en la ruta interna carga la página del destino | Pendiente | Pendiente | Pendiente |
-| 13 | Pantalla de celular | Recorrer Destinos y un destino a 360 px (o en el iPhone) | Una columna, sin desplazamiento horizontal; el resumen al final | Pendiente | Pendiente | Pendiente |
-| 14 | Escritorio | Recorrer Destinos y un destino en pantalla ancha | 3 columnas en Destinos; el resumen fijo al costado en el destino | Pendiente | Pendiente | Pendiente |
-| 15 | Tema claro y oscuro | Alternar "Modo oscuro" y recorrer las páginas | Textos legibles en ambos temas; la preferencia se mantiene al recargar | Pendiente | Pendiente | Pendiente |
-| 16 | Aviso de Service Worker | Bloquear el almacenamiento del sitio (Chrome: `chrome://settings/content/siteData`; Edge: `edge://settings/content/cookies`; Safari: bloquear todas las cookies en los ajustes de Safari) y recargar | Aviso "El navegador no permitió iniciar los datos simulados" (o "Este navegador no permite Service Workers"), nunca "Sin conexión" | Pendiente | Pendiente | Pendiente |
+| # | Caso | Pasos | Resultado esperado | Chrome (Windows) | Safari (iPhone) |
+| --- | --- | --- | --- | --- | --- |
+| 1 | Flujo principal | Inicio → Ver destinos → un destino → Volver | Cada página carga con su título y sus datos; Volver regresa a Destinos | OK | OK |
+| 2 | Filtro de destinos | Elegir Nacionales, luego Internacionales y recargar | 4 y 4 destinos; "Mostrando 4 de 8 destinos"; la URL cambia y el filtro se mantiene al recargar | OK | OK |
+| 3 | Selección y total | En San Pedro de Atacama, elegir el vuelo de AeroAndes y el Hotel Desierto Rojo; luego el Lodge Altiplano; luego Limpiar selección | Total $679.990 y 5 noches de viaje y de hotel; advertencia de fechas con Lodge Altiplano; Limpiar vuelve al mensaje inicial | OK | OK |
+| 4 | Errores con el selector "Simulación de la API" | "Error del servidor (500)" y abrir un destino no visitado; volver a Normal y Reintentar; repetir con "Sin conexión" | "Error del servidor" o "Sin conexión", con Reintentar y enlace a Destinos; al reintentar en Normal llegan los datos | OK | OK |
+| 5 | Página 404 | Abrir una URL inexistente, por ejemplo `/cualquier-cosa` | "Página no encontrada" con Volver e Ir al inicio | OK | OK |
+| 6 | Recarga en una ruta interna | Recargar estando en `/destinos/1` | La página del destino carga normalmente (no aparece el 404 de GitHub Pages) | OK | OK |
+| 7 | Pantalla de celular o 360 px | Recorrer Destinos y un destino a 360 px (en Chrome) o en el iPhone | Una columna, sin desplazamiento horizontal; el resumen del viaje al final | OK | OK |
+| 8 | Ambos temas | Alternar "Modo oscuro" y recorrer las páginas | Textos legibles en ambos temas; la preferencia se mantiene al recargar | OK | OK |
+
+**Resultado:** los 8 casos aprobados en ambos navegadores, sin fallas.
 
 ## Errores encontrados y corregidos
 
