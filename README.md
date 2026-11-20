@@ -13,22 +13,23 @@ Un recorrido por el sitio publicado para ver sus funciones en unos minutos. Conv
 2. **Filtro:** elige **Nacionales**. Se muestran 4 destinos, el texto dice "Mostrando 4 de 8 destinos" y la URL queda con `?region=nacionales`, sin nuevas peticiones. Al recargar, el filtro se mantiene.
 3. **GraphQL:** abre **San Pedro de Atacama → Ver vuelos y hoteles**. Una sola petición `POST …/graphql` trae el destino, sus vuelos y sus hoteles. La nota "Cómo llegar" explica que los vuelos llegan a Calama. Pulsa **Volver** y entra de nuevo: no hay una segunda petición (caché de Apollo).
 4. **Selección del viaje:** elige el vuelo de **AeroAndes** y el **Hotel Desierto Rojo**. El resumen muestra 5 noches de viaje, 5 de hotel y un total estimado de **$679.990** (vuelo $189.990 más 5 noches de $98.000). Si cambias al **Lodge Altiplano** (estadía en enero), el resumen advierte que las fechas no calzan. Las opciones **Agotado** no se pueden elegir.
-5. **Errores:** elige **Error del servidor (500)** en el selector y abre **Cusco**. Aparece "Error del servidor" con **Reintentar** y un enlace a los destinos. Vuelve a **Normal**, pulsa **Reintentar** y los datos llegan sin salir de la página. Con **Sin conexión** el aviso es distinto ("Sin conexión") y ofrece las mismas alternativas.
-6. **No encontrado y sin oferta:** abre `/destinos/99` (destino inexistente según la API) y `/destinos/abc` (id inválido: no hace ninguna petición). Ambos muestran "Destino no encontrado", sin Reintentar. **Madrid** no tiene vuelos ni hoteles y lo indica con su propio mensaje.
+5. **Errores:** elige **Error del servidor (500)** en el selector y abre **Cusco**. Aparece "Error del servidor" con **Reintentar** y un enlace a los destinos. Vuelve a **Normal**, pulsa **Reintentar** y los datos llegan sin salir de la página. Con **Sin conexión** el aviso es distinto ("Sin conexión") y ofrece las mismas alternativas. Con **Sin respuesta**, el servidor nunca responde: a los 15 s aparece "Tiempo agotado" con **Reintentar**.
+6. **No encontrado y sin oferta:** abre `/destinos/99` (destino inexistente según la API) y `/destinos/abc` (id inválido: no hace ninguna petición). Ambos muestran "Destino no encontrado", sin Reintentar, aunque haya una falla activa en el selector. **Madrid** no tiene vuelos ni hoteles y lo indica con su propio mensaje.
 7. **404 y recarga:** abre `/cualquier-cosa` para ver "Página no encontrada". Recarga estando en `/destinos/1`: la página carga igual gracias al `404.html` que genera el build.
+8. **Vencimiento de la caché:** con un destino ya visitado, espera 5 minutos y vuelve a abrirlo. Los vuelos y hoteles aparecen al instante con el indicador de carga encima, y una sola petición `graphql` los actualiza en segundo plano. Lo mismo ocurre con el listado de destinos.
 
 ## Qué incluye y dónde verlo
 
 | Tema | Qué incluye | Dónde verlo |
 | --- | --- | --- |
 | Interfaz responsiva | Recorrido Inicio → Destinos → Destino, avisos para cada estado, diseño de 360 px a escritorio, tema claro y oscuro | [Detalle](docs/funcionalidades.md#interfaz-responsiva) · [`Layout.jsx`](src/components/Layout.jsx), [`Destino.jsx`](src/pages/Destino.jsx), [`index.css`](src/index.css) |
-| API REST simulada | `GET /api/destinos` con cliente HTTP propio, caché por URL y cancelación | [Detalle](docs/funcionalidades.md#api-rest-simulada) · [`handlers.js`](src/mocks/handlers.js), [`clienteHttp.js`](src/services/clienteHttp.js), [`Destinos.jsx`](src/pages/Destinos.jsx) |
-| API GraphQL simulada | Una consulta con el destino, sus vuelos y sus hoteles; Apollo Client con caché normalizada | [Detalle](docs/funcionalidades.md#api-graphql-simulada) · [`handlers.js`](src/mocks/handlers.js), [`consultas.js`](src/services/consultas.js), [`useOpcionesViaje.js`](src/hooks/useOpcionesViaje.js) |
+| API REST simulada | `GET /api/destinos` con cliente HTTP propio: caché por URL que vence a los 5 minutos, tiempo límite de 15 s, validación de la respuesta y cancelación | [Detalle](docs/funcionalidades.md#api-rest-simulada) · [`handlers.js`](src/mocks/handlers.js), [`clienteHttp.js`](src/services/clienteHttp.js), [`Destinos.jsx`](src/pages/Destinos.jsx) |
+| API GraphQL simulada | Una consulta con el destino, sus vuelos y sus hoteles; Apollo Client con caché normalizada, con el mismo vencimiento, tiempo límite y validación que REST | [Detalle](docs/funcionalidades.md#api-graphql-simulada) · [`handlers.js`](src/mocks/handlers.js), [`consultas.js`](src/services/consultas.js), [`useOpcionesViaje.js`](src/hooks/useOpcionesViaje.js) |
 | Navegación | React Router con carga diferida, Volver seguro, filtro en la URL, página 404 y recarga en rutas internas | [Detalle](docs/funcionalidades.md#navegación) · [`AppRoutes.jsx`](src/routes/AppRoutes.jsx), [`useVolver.js`](src/hooks/useVolver.js) |
 | Organización y reutilización del código | Capas separadas, componentes y funciones compartidos entre páginas y entre las dos APIs | [Detalle](docs/funcionalidades.md#organización-y-reutilización-del-código) · [estructura](#estructura) |
 | Manejo de estado | `useState` y `useEffect`, estado derivado y estado en la URL | [Detalle](docs/funcionalidades.md#manejo-de-estado) · [`useConsulta.js`](src/hooks/useConsulta.js), [`Destino.jsx`](src/pages/Destino.jsx) |
 | Publicación en GitHub Pages | Base de la subcarpeta, `404.html` y worker de MSW registrado con la base | [Detalle](docs/funcionalidades.md#publicación-en-github-pages) · [`vite.config.js`](vite.config.js), [`package.json`](package.json) |
-| Pruebas | 225 pruebas automatizadas y pruebas manuales en Chrome y Safari | [Detalle](docs/funcionalidades.md#pruebas) · [pruebas](docs/pruebas.md) |
+| Pruebas | 370 pruebas automatizadas y pruebas manuales en Chrome y Safari | [Detalle](docs/funcionalidades.md#pruebas) · [pruebas](docs/pruebas.md) |
 
 ## Alcance
 
@@ -69,14 +70,14 @@ npm run deploy    # compila y publica dist/ en la rama gh-pages
 
 ```
 src/
-  config/       nombre, eslogan y país de la agencia (sitio.js)
+  config/       nombre, eslogan y país de la agencia (sitio.js); tiempo límite y vigencia de la caché (api.js)
   mocks/        datos.js (solo datos), handlers.js (REST y GraphQL), browser.js, simulacion.js
-  services/     cliente HTTP con caché, servicio de destinos, cliente Apollo y consultas GraphQL
+  services/     cliente HTTP con caché, servicio de destinos, cliente Apollo, consultas GraphQL, tiempo límite y reloj
   hooks/        useConsulta, useDestinos, useOpcionesViaje, useVolver
   routes/       AppRoutes.jsx
   pages/        Inicio, Destinos, Destino, NoEncontrado
   components/   comunes (Layout, Boton, Aviso…), destinos/ y destino/
-  utils/        funciones puras: errores, ids, formato, viaje, destinos, mock, almacenamiento, tema
+  utils/        funciones puras: errores, ids, formato, viaje, destinos, mock, almacenamiento, tema, validacion, vigencia, consulta
   styles/       clases de Tailwind compartidas
   test/         configuración y utilidades de las pruebas
 docs/           documentación técnica

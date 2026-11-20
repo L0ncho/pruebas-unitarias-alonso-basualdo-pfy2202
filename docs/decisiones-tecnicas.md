@@ -11,6 +11,8 @@ Las dos páginas de datos (Destinos por REST y Destino por GraphQL) y las dos AP
 - `esperarRed()` en [`handlers.js`](../src/mocks/handlers.js) aplica la misma demora y el mismo modo de simulación a REST y a GraphQL; cada API arma solo su respuesta de falla.
 - [`useOpcionesViaje.js`](../src/hooks/useOpcionesViaje.js) devuelve la misma forma que [`useConsulta.js`](../src/hooks/useConsulta.js) (`datos`, `cargando`, `error` y `reintentar`), así ambas páginas manejan carga, error y reintento de la misma manera.
 - Los dos clientes marcan la falla de red igual (`{ red: true }`): solo el rechazo de `fetch` cuenta como "sin conexión".
+- [`conTiempoLimite`](../src/services/tiempoLimite.js) es la única implementación del tiempo límite, que usan el cliente REST y el `fetch` del `HttpLink`. [`ahora()`](../src/services/reloj.js) es el único lugar que lee la hora, para la vigencia de ambas cachés.
+- [`EstadoConsulta.jsx`](../src/components/EstadoConsulta.jsx) muestra la carga, el error y la lista vacía en las dos páginas de datos, y [`consulta.js`](../src/utils/consulta.js) calcula ese estado para cada API con funciones puras.
 
 **Compartido entre páginas y componentes**
 - Interfaz: `Layout` envuelve todas las páginas, y `Boton`, `Aviso`, `Cargando` y `TituloPagina` se usan en varias. Las clases de Tailwind que comparten varios componentes están en [`clases.js`](../src/styles/clases.js) (por ejemplo, las del botón y de las opciones elegibles).
@@ -35,7 +37,13 @@ Las dos páginas de datos (Destinos por REST y Destino por GraphQL) y las dos AP
 - **Las páginas nunca llaman a `fetch` ni a Apollo:** usan hooks, que usan los servicios.
 - **REST:** un único cliente HTTP con caché en memoria por URL, peticiones en curso compartidas entre consumidores y cancelación con `AbortController` en cada efecto. La petición de red se aborta solo cuando ya nadie la espera (el abort se difiere a una microtarea para que el doble efecto de StrictMode no la repita). Los errores nunca quedan en caché.
 - **GraphQL:** Apollo Client con `InMemoryCache` normalizada por tipo e id y política `cache-first`. El `HttpLink` usa un `fetch` envoltorio que marca como `{ red: true }` solo el rechazo de `fetch`, igual que el cliente REST.
-- **Errores comunes:** [`normalizarError`](../src/utils/errores.js) entrega `{ tipo, estado, mensaje }` (`red`, `no-encontrado`, `servidor`, `cancelado` o `desconocido`) para errores REST y de Apollo. No importa Apollo: reconoce sus errores por nombre y propiedades, porque la página de destinos (REST) también lo usa y no debe descargar Apollo. Una cancelación nunca se muestra como error.
+- **Tiempo límite (15 s, en [`api.js`](../src/config/api.js)):** cubre la petición y la lectura del cuerpo. Al vencer, se aborta la petición y el aviso es "Tiempo agotado" con Reintentar. Se distingue de una cancelación con una marca propia, no con `signal.reason`, y no usa `AbortSignal.any` (compatibilidad con Safari 16.4). En REST el plazo cubre la petición compartida: si un consumidor cancela, el otro sigue esperando hasta el plazo. La "respuesta lenta" de 4 s no lo activa.
+- **Validación de las respuestas:** [`validacion.js`](../src/utils/validacion.js) revisa los campos que usan las vistas y su tipo (los nullables del esquema, como `notaLlegada`, aceptan `null`). Una respuesta inválida, o un JSON ilegible en una respuesta 2xx, da "Datos incompletos" con Reintentar; nunca una vista rota ni datos parciales, y un solo destino inválido invalida todo el listado. Se valida antes de guardar: en REST, antes de escribir en la caché; en GraphQL, en un `ApolloLink` anterior al `HttpLink`, así Apollo no escribe el dato en `InMemoryCache`. Una respuesta con `errors` (por ejemplo, `NOT_FOUND`) no se valida y sigue siendo "no encontrado".
+- **Vencimiento de la caché (5 minutos desde que llega la respuesta, en [`api.js`](../src/config/api.js)):** un dato vigente no genera petición. Uno vencido se muestra al instante y se actualiza en segundo plano con `aria-busy`, como al reintentar, y se reemplaza sin parpadeo. Si la actualización falla, el dato sigue visible junto al aviso, igual que un reintento fallido, y la próxima visita lo vuelve a pedir. La vigencia se evalúa al entrar a la vista, no con un temporizador.
+  - REST: cada entrada de la caché guarda `{ datos, recibidoEn }`; `leerCache` entrega el dato aunque haya vencido y `obtenerJson` lo pide de nuevo.
+  - GraphQL: `InMemoryCache` no guarda la hora, así que un enlace anota cuándo llegó cada respuesta válida. Al entrar a un destino vencido, `useOpcionesViaje` usa `cache-and-network` con `nextFetchPolicy: 'cache-first'`: Apollo entrega la caché con `loading` y hace una sola petición, sin efectos propios que se repitan en StrictMode, y un error conserva los datos anteriores.
+  - La selección guarda ids: si tras la actualización una opción ya no existe o se agotó, queda como no elegida.
+- **Errores comunes:** [`normalizarError`](../src/utils/errores.js) entrega `{ tipo, estado, mensaje }` (`red`, `no-encontrado`, `servidor`, `tiempo-agotado`, `datos-incompletos`, `cancelado` o `desconocido`) para errores REST y de Apollo. Las marcas de tiempo agotado y datos incompletos son instancias de `Error`, porque Apollo 4 envuelve cualquier otro valor en `UnconventionalError`. No importa Apollo: reconoce sus errores por nombre y propiedades, porque la página de destinos (REST) también lo usa y no debe descargar Apollo. Una cancelación nunca se muestra como error.
 - **Ids:** desde la URL se convierten solo con `convertirEntero` (entero positivo o `null`). Un id inválido no genera petición, y los handlers validan igual.
 
 ## Optimización de carga
@@ -49,13 +57,13 @@ Tamaños de `npm run build` (archivos JavaScript principales):
 
 | Archivo | Contenido | Tamaño | gzip | Cuándo se descarga |
 | --- | --- | --- | --- | --- |
-| `index` | React, React Router, Layout, tema y aviso de Service Worker | 268,70 kB | 85,77 kB | Al abrir el sitio |
-| `browser` | MSW, handlers y datos | 451,19 kB | 166,47 kB | Al abrir el sitio, antes del primer render |
+| `index` | React, React Router, Layout, tema y aviso de Service Worker | 268,85 kB | 85,79 kB | Al abrir el sitio |
+| `browser` | MSW, handlers y datos | 451,55 kB | 166,59 kB | Al abrir el sitio, antes del primer render |
 | `graphql-lenguaje` | Analizador de GraphQL | 52,76 kB | 14,28 kB | Al abrir el sitio (lo importa MSW) |
 | `graphql` | Esquema, validación y ejecución | 124,88 kB | 31,48 kB | Con la primera consulta GraphQL |
-| `Destino` | Página del destino y Apollo Client | 169,09 kB | 51,64 kB | Al abrir un destino |
-| `Destinos` | Página de destinos, filtro y cliente HTTP | 5,62 kB | 2,39 kB | Al abrir Destinos |
-| `destinos` | Compartido por ambas páginas: `normalizarError`, filtro y avisos de error | 3,17 kB | 1,36 kB | Al abrir Destinos o un destino |
+| `Destino` | Página del destino y Apollo Client | 169,94 kB | 51,96 kB | Al abrir un destino |
+| `Destinos` | Página de destinos, filtro y cliente HTTP | 6,04 kB | 2,56 kB | Al abrir Destinos |
+| `consulta` | Compartido por ambas páginas: `normalizarError`, estado de las consultas, filtro, formato y avisos de carga y error (`EstadoConsulta`) | 6,23 kB | 2,46 kB | Al abrir Destinos o un destino |
 
 El resto son archivos menores de 1 kB. El build no muestra el aviso de archivos mayores a 500 kB.
 
@@ -66,6 +74,10 @@ El resto son archivos menores de 1 kB. El build no muestra el aviso de archivos 
 - **Estado derivado:** las noches, los totales, si las fechas calzan, la anticipación recomendada y la lista filtrada se calculan en cada render con funciones puras ([`viaje.js`](../src/utils/viaje.js) y [`destinos.js`](../src/utils/destinos.js)).
 - **`key` para reiniciar la selección:** el contenido del destino se renderiza con `key={id}` (id normalizado). Al cambiar de destino, React crea el componente de nuevo y la selección parte vacía, sin efectos. "7" y "007" dan la misma key.
 - **Filtro en la URL:** `?region=nacionales` o `?region=internacionales` con `useSearchParams` y `replace: true`. Se puede compartir y sobrevive a la recarga; cambiarlo no llena el historial; un valor desconocido se trata como "Todos".
+
+### Tema sin destello
+
+El tema debe aplicarse antes del primer pintado, así que lo hace un script clásico y síncrono en el `<head>`, antes de que cargue React. Ese script se genera en [`tema.js`](../src/utils/tema.js) (`SCRIPT_TEMA_INICIAL`) con la misma clave (`airfly-tema`) y los mismos valores que usa `BotonTema`, y un plugin de [`vite.config.js`](../vite.config.js) (`transformIndexHtml`) lo inserta en `index.html` en desarrollo y al compilar. Así la clave y los valores tienen una sola fuente.
 
 ## Accesibilidad
 
@@ -104,7 +116,7 @@ Sin el mock, todas las consultas fallarían y se verían como "Sin conexión", l
 
 **Corrección:**
 - `estadoMock` recibe los errores observados y solo clasifica como `error-carga` los que `esFallaDescargaModulo` reconoce como falla de descarga del módulo (un `TypeError` con el mensaje de Chrome y Edge, Firefox o Safari). Cualquier otro error al importar o al iniciar el worker es `error-inicio`.
-- Todo acceso a `localStorage` y `sessionStorage` del proyecto pasa por [`almacenamiento.js`](../src/utils/almacenamiento.js), que captura el `SecurityError` (incluso al leer la propiedad `window.localStorage`) y usa los valores por defecto: modo de simulación normal y tema según el sistema. El script del tema en `index.html` también usa `try/catch`.
+- Todo acceso a `localStorage` y `sessionStorage` del proyecto pasa por [`almacenamiento.js`](../src/utils/almacenamiento.js), que captura el `SecurityError` (incluso al leer la propiedad `window.localStorage`) y usa los valores por defecto: modo de simulación normal y tema según el sistema. El script del tema que se inserta en `index.html` también usa `try/catch`.
 
 Las capturas de antes y después están en [pruebas](pruebas.md#errores-encontrados-y-corregidos).
 

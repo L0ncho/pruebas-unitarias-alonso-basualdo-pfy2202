@@ -4,7 +4,7 @@ AirFly no tiene un servidor propio: las dos APIs se simulan en el navegador con 
 
 Las rutas son relativas a la base del sitio (`import.meta.env.BASE_URL`): en desarrollo, `/api/…` y `/graphql`; en GitHub Pages, `/viajes-alonso-basualdo-pfy2202/api/…` y `/viajes-alonso-basualdo-pfy2202/graphql`.
 
-Cada respuesta espera entre 400 y 900 ms (4 s en el modo lento) para que se vean los indicadores de carga.
+Cada respuesta espera entre 400 y 900 ms (4 s en el modo lento) para que se vean los indicadores de carga. Los clientes cortan cualquier petición a los 15 s (tiempo límite) y validan la estructura de cada respuesta antes de guardarla ([decisiones técnicas](decisiones-tecnicas.md#capa-de-datos)).
 
 ## API REST
 
@@ -37,6 +37,7 @@ Errores:
 | --- | --- |
 | Error del servidor (modo de simulación) | `500` con `{ "mensaje": "El servidor tuvo un problema. Intenta nuevamente en unos momentos." }` |
 | Sin conexión (modo de simulación) | Falla de red: `fetch` rechaza, sin respuesta HTTP |
+| Sin respuesta (modo de simulación) | Nunca responde: el cliente corta la petición a los 15 s |
 
 El detalle de cada destino no es un recurso REST: va por GraphQL junto con sus vuelos y hoteles.
 
@@ -196,6 +197,9 @@ Los errores de la consulta van en el arreglo `errors` con `extensions.code`, y `
 | Id inválido (`"abc"`, `"0"`, `"1.5"`) | 200 | `BAD_USER_INPUT` | "El id de destino «abc» no es válido." |
 | Error del servidor (modo de simulación) | 500 | `INTERNAL_SERVER_ERROR` | "El servidor tuvo un problema. Intenta nuevamente en unos momentos." |
 | Sin conexión (modo de simulación) | — | — | Falla de red: `fetch` rechaza |
+| Sin respuesta (modo de simulación) | — | — | Nunca responde: el cliente corta la petición a los 15 s |
+
+Un destino inexistente o un id inválido responden `NOT_FOUND` o `BAD_USER_INPUT` aunque haya una falla simulada activa: la falla solo afecta a las consultas de destinos que existen, y esas respuestas llegan con la demora normal.
 
 Ejemplo de destino inexistente:
 
@@ -224,9 +228,10 @@ El selector **"Simulación de la API"** del pie guarda el modo en `sessionStorag
 | Normal | 200 con los datos (400 a 900 ms) | 200 con `data` (400 a 900 ms) | Los datos |
 | Error del servidor (500) | 500 con `{ mensaje }` | 500 con `errors` e `INTERNAL_SERVER_ERROR` | "Error del servidor", con Reintentar y un enlace de salida |
 | Sin conexión | Falla de red | Falla de red | "Sin conexión", con Reintentar y un enlace de salida |
-| Respuesta lenta (4 s) | 200 tras 4 s | 200 tras 4 s | Indicador de carga con el título ya visible |
+| Respuesta lenta (4 s) | 200 tras 4 s | 200 tras 4 s | Indicador de carga con el título ya visible; no alcanza el tiempo límite |
+| Sin respuesta | Nunca responde | Nunca responde | A los 15 s, "Tiempo agotado" con Reintentar y un enlace de salida |
 
-Lo ya consultado queda en caché (la del cliente HTTP para REST y la de Apollo para GraphQL): para ver un error hay que abrir algo no visitado o recargar la página.
+Lo ya consultado queda en caché (la del cliente HTTP para REST y la de Apollo para GraphQL) durante 5 minutos: para ver un error hay que abrir algo no visitado, recargar la página o volver cuando el dato haya vencido. En ese último caso el dato vencido sigue visible junto al aviso.
 
 Si el almacenamiento está bloqueado, el modo queda en "Normal" ([`almacenamiento.js`](../src/utils/almacenamiento.js)).
 
@@ -247,5 +252,5 @@ Si el almacenamiento está bloqueado, el modo queda en "Normal" ([`almacenamient
 
 - **MSW está en `dependencies` y activo también en producción.** GitHub Pages solo sirve archivos estáticos: sin el mock, el sitio publicado no tendría datos. Por eso MSW no es una dependencia de desarrollo y el worker se inicia también en el sitio publicado.
 - **Arranque** en [`main.jsx`](../src/main.jsx): la aplicación se renderiza después de `worker.start()`, para que ninguna petición se adelante al worker. MSW se importa de forma diferida, en un archivo propio que el navegador reutiliza desde su caché.
-- **Registro con la base del sitio** en [`browser.js`](../src/mocks/browser.js): `url` `${BASE_URL}mockServiceWorker.js` y `scope` `BASE_URL`, con `onUnhandledRequest: 'bypass'` (las peticiones que no son de la API siguen a la red). `mockServiceWorker.js` vive en `public/` y se genera con `npx msw init public`.
+- **Registro con la base del sitio** en [`browser.js`](../src/mocks/browser.js): `url` `${BASE_URL}mockServiceWorker.js` y `scope` `BASE_URL`, con un `onUnhandledRequest` propio: una petición a `api/…` o `graphql` sin manejador muestra una advertencia en la consola y sigue a la red, así no se convierte en un error de red ("Sin conexión"); las demás peticiones (scripts, estilos, imágenes) siguen a la red sin aviso. La advertencia aparece también en el sitio publicado. `mockServiceWorker.js` vive en `public/` y se genera con `npx msw init public`.
 - **Si el mock no puede arrancar**, se muestra un aviso específico en lugar de la aplicación ([`MockNoDisponible.jsx`](../src/components/MockNoDisponible.jsx)): el navegador no permite Service Workers, no permitió iniciarlos o no se pudo descargar el código del mock. Detalle en [decisiones técnicas](decisiones-tecnicas.md#aviso-de-service-worker-no-disponible).

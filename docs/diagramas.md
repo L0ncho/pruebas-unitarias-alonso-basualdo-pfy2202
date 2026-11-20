@@ -23,12 +23,14 @@ flowchart TB
 
   subgraph Servicios["Servicios (src/services)"]
     servicioDestinos["destinos.js"]
-    clienteHttp["clienteHttp.js<br/>caché por URL"]
+    clienteHttp["clienteHttp.js<br/>caché por URL (5 min)"]
     consultas["consultas.js<br/>OpcionesViaje"]
-    clienteApollo["clienteApollo.js<br/>InMemoryCache"]
+    clienteApollo["clienteApollo.js<br/>InMemoryCache (5 min)"]
+    tiempoLimite["tiempoLimite.js<br/>15 s"]
   end
 
   errores["utils/errores.js<br/>normalizarError"]
+  validacion["utils/validacion.js"]
 
   subgraph Mock["MSW (src/mocks)"]
     worker["Service Worker<br/>mockServiceWorker.js"]
@@ -45,6 +47,10 @@ flowchart TB
   clienteApollo -- fetch --> worker
   worker --> handlerRest --> datos
   worker --> handlerGraphql --> datos
+  clienteHttp --> tiempoLimite
+  clienteApollo --> tiempoLimite
+  clienteHttp --> validacion
+  clienteApollo --> validacion
   clienteHttp --> errores
   useOpcionesViaje --> errores
 ```
@@ -81,7 +87,7 @@ flowchart TB
 
 ## Flujo de una consulta con caché y errores
 
-Consulta REST con `useConsulta`. La consulta GraphQL sigue el mismo esquema con la caché de Apollo (`cache-first`) y `refetch()` para reintentar.
+Consulta REST con `useConsulta`. La consulta GraphQL sigue el mismo esquema con la caché de Apollo: `cache-first` con un dato vigente, `cache-and-network` con uno vencido y `refetch()` para reintentar.
 
 ```mermaid
 sequenceDiagram
@@ -91,27 +97,27 @@ sequenceDiagram
   participant W as MSW (Service Worker)
 
   P->>H: useDestinos()
-  H->>C: leerCache(ruta)
-  alt Hay datos en caché
+  H->>C: leerCache(ruta) y cacheVigente(ruta)
+  alt Dato vigente (menos de 5 minutos)
     C-->>H: datos
     H-->>P: datos, sin indicador de carga
-  else Sin caché
-    H-->>P: cargando (aria-busy)
+  else Dato vencido o sin caché
+    H-->>P: dato vencido (si hay) y cargando (aria-busy)
     H->>C: obtenerJson(ruta, signal)
-    C->>W: fetch (o se une a la petición en curso)
+    C->>W: fetch con tiempo límite de 15 s (o se une a la petición en curso)
     W->>W: esperarRed(): demora y modo de simulación
     alt Normal
       W-->>C: 200 con datos
-      C->>C: guarda en caché
+      C->>C: valida y guarda en caché con la hora
       C-->>H: datos
-      H-->>P: datos
-    else Error del servidor o sin conexión
-      W-->>C: 500 o falla de red
-      C-->>H: normalizarError: servidor o red (no se guarda en caché)
-      H-->>P: aviso con Reintentar y enlace de salida
+      H-->>P: datos nuevos, sin parpadeo
+    else Error del servidor, sin conexión, sin respuesta o datos inválidos
+      W-->>C: 500, falla de red, nada en 15 s o datos inválidos
+      C-->>H: normalizarError: servidor, red, tiempo-agotado o datos-incompletos (no se guarda en caché)
+      H-->>P: aviso con Reintentar y enlace de salida, con el dato vencido visible
       P->>H: reintentar()
       H->>C: obtenerJson(ruta, forzar)
     end
   end
-  Note over H,C: Al desmontar, el efecto cancela con AbortController;<br/>una cancelación nunca se muestra como error
+  Note over H,C: Al desmontar, el efecto cancela con AbortController,<br/>y una cancelación nunca se muestra como error
 ```
