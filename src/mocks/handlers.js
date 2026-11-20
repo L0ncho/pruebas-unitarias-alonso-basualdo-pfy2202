@@ -9,7 +9,7 @@ export const ENDPOINT_GRAPHQL = `${import.meta.env.BASE_URL}graphql`
 
 const DEMORA_MINIMA = 400
 const DEMORA_MAXIMA = 900
-const DEMORA_LENTA = 4000
+export const DEMORA_LENTA = 4000
 
 const MENSAJE_ERROR_SERVIDOR = 'El servidor tuvo un problema. Intenta nuevamente en unos momentos.'
 
@@ -18,9 +18,11 @@ function demoraNormal() {
 }
 
 // Simulación de la red, común a REST y GraphQL: lee el modo del selector del pie, espera la
-// demora que corresponde y devuelve el modo. Cada API arma después su propia respuesta de falla
+// demora que corresponde y devuelve el modo. Cada API arma después su propia respuesta de falla.
+// En el modo "sin respuesta" la espera nunca termina: el cliente la corta con su tiempo límite
 export async function esperarRed() {
   const modo = leerModoSimulacion()
+  if (modo === MODOS.sinRespuesta) await delay('infinite')
   await delay(modo === MODOS.lenta ? DEMORA_LENTA : demoraNormal())
   return modo
 }

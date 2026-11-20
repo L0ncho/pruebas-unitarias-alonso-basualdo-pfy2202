@@ -9,6 +9,7 @@ export const MODOS = {
   errorServidor: 'error-servidor',
   sinConexion: 'sin-conexion',
   lenta: 'lenta',
+  sinRespuesta: 'sin-respuesta',
 }
 
 export const OPCIONES_SIMULACION = [
@@ -16,6 +17,7 @@ export const OPCIONES_SIMULACION = [
   { valor: MODOS.errorServidor, etiqueta: 'Error del servidor (500)' },
   { valor: MODOS.sinConexion, etiqueta: 'Sin conexión' },
   { valor: MODOS.lenta, etiqueta: 'Respuesta lenta (4 s)' },
+  { valor: MODOS.sinRespuesta, etiqueta: 'Sin respuesta' },
 ]
 
 const valoresValidos = new Set(Object.values(MODOS))

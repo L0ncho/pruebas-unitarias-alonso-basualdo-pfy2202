@@ -1,8 +1,8 @@
 import { print } from 'graphql'
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { destinos, hoteles, vuelos } from './datos.js'
 import { ENDPOINT_GRAPHQL } from './handlers.js'
-import { guardarModoSimulacion, MODOS } from './simulacion.js'
+import { guardarModoSimulacion, MODOS, OPCIONES_SIMULACION } from './simulacion.js'
 import { OPCIONES_VIAJE } from '../services/consultas.js'
 import { crearAlmacenamiento } from '../test/almacenamiento.js'
 import { API, crearServidor } from '../test/servidor.js'
@@ -64,6 +64,47 @@ describe('GET /api/destinos', () => {
     guardarModoSimulacion(MODOS.sinConexion)
 
     await expect(fetch(`${API}/destinos`)).rejects.toThrow(TypeError)
+  })
+})
+
+describe('modo "sin respuesta"', () => {
+  // Temporizadores falsos: se avanza mucho más que cualquier demora del mock sin esperar
+  beforeEach(() => vi.useFakeTimers())
+  afterEach(() => vi.useRealTimers())
+
+  it.each([
+    ['REST', () => ({ url: `${API}/destinos`, opciones: {} })],
+    [
+      'GraphQL',
+      () => ({
+        url: ENDPOINT_GRAPHQL,
+        opciones: {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query: print(OPCIONES_VIAJE), variables: { id: '1' } }),
+        },
+      }),
+    ],
+  ])('%s nunca responde; solo termina si el cliente aborta', async (_api, peticion) => {
+    guardarModoSimulacion(MODOS.sinRespuesta)
+    const { url, opciones } = peticion()
+    const controlador = new AbortController()
+    let estado = 'pendiente'
+    const respuesta = fetch(url, { ...opciones, signal: controlador.signal }).then(
+      () => (estado = 'respondida'),
+      (error) => (estado = error.name),
+    )
+
+    await vi.advanceTimersByTimeAsync(60000)
+    expect(estado).toBe('pendiente')
+
+    controlador.abort()
+    await respuesta
+    expect(estado).toBe('AbortError')
+  })
+
+  it('el selector ofrece el modo "Sin respuesta"', () => {
+    expect(OPCIONES_SIMULACION).toContainEqual({ valor: MODOS.sinRespuesta, etiqueta: 'Sin respuesta' })
   })
 })
 

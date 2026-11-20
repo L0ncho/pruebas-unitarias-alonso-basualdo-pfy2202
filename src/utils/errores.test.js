@@ -5,7 +5,14 @@ import {
   UnconventionalError,
 } from '@apollo/client/errors'
 import { describe, expect, it } from 'vitest'
-import { errorIdInvalido, normalizarError, TIPOS_ERROR, tituloError } from './errores.js'
+import {
+  crearErrorDatosIncompletos,
+  crearErrorTiempoAgotado,
+  errorIdInvalido,
+  normalizarError,
+  TIPOS_ERROR,
+  tituloError,
+} from './errores.js'
 
 describe('normalizarError', () => {
   it('una falla de red queda como "red" con su mensaje', () => {
@@ -78,6 +85,34 @@ describe('normalizarError', () => {
   })
 })
 
+describe('normalizarError con los tipos tiempo-agotado y datos-incompletos', () => {
+  it('el error de tiempo agotado es un Error y queda como "tiempo-agotado"', () => {
+    const marca = crearErrorTiempoAgotado()
+    expect(marca).toBeInstanceOf(Error)
+    expect(normalizarError(marca)).toEqual({
+      tipo: TIPOS_ERROR.tiempoAgotado,
+      estado: null,
+      mensaje: 'El servidor tardó demasiado en responder. Intenta nuevamente.',
+    })
+  })
+
+  it('un tiempo agotado nunca es "cancelado", aunque el error se llame AbortError', () => {
+    const marca = Object.assign(new DOMException('Abortado', 'AbortError'), { tiempoAgotado: true })
+    expect(normalizarError(marca).tipo).toBe(TIPOS_ERROR.tiempoAgotado)
+  })
+
+  it('el error de datos incompletos es un Error y queda como "datos-incompletos"', () => {
+    const marca = crearErrorDatosIncompletos(new SyntaxError('Unexpected token'))
+    expect(marca).toBeInstanceOf(Error)
+    expect(marca.cause).toBeInstanceOf(SyntaxError)
+    expect(normalizarError(marca)).toEqual({
+      tipo: TIPOS_ERROR.datosIncompletos,
+      estado: null,
+      mensaje: expect.stringMatching(/incompleta/),
+    })
+  })
+})
+
 describe('normalizarError con errores de Apollo 4', () => {
   // Se construyen con las clases reales de Apollo, tal como las entrega el cliente
   function respuesta(estado) {
@@ -135,15 +170,25 @@ describe('normalizarError con errores de Apollo 4', () => {
     })
   })
 
-  it('ServerParseError queda como "desconocido" por formato inválido', () => {
+  it('ServerParseError con 2xx queda como "datos-incompletos"', () => {
     const error = new ServerParseError(new SyntaxError('Unexpected token'), {
       response: respuesta(200),
       bodyText: '{ esto no es json',
     })
-    expect(normalizarError(error)).toMatchObject({
-      tipo: TIPOS_ERROR.desconocido,
-      mensaje: expect.stringMatching(/formato válido/),
+    expect(normalizarError(error)).toEqual({
+      tipo: TIPOS_ERROR.datosIncompletos,
+      estado: null,
+      mensaje: expect.stringMatching(/incompleta/),
     })
+  })
+
+  it('ServerParseError con un código no 2xx usa ese código (500 queda como "servidor")', () => {
+    // Apollo lo lanza así con el content-type application/graphql-response+json
+    const error = new ServerParseError(new SyntaxError('Unexpected token'), {
+      response: respuesta(500),
+      bodyText: '<html>Error</html>',
+    })
+    expect(normalizarError(error)).toMatchObject({ tipo: TIPOS_ERROR.servidor, estado: 500 })
   })
 
   it('UnconventionalError queda como "desconocido"', () => {
@@ -175,6 +220,8 @@ describe('tituloError', () => {
     [TIPOS_ERROR.red, 'Sin conexión'],
     [TIPOS_ERROR.noEncontrado, 'No encontrado'],
     [TIPOS_ERROR.servidor, 'Error del servidor'],
+    [TIPOS_ERROR.tiempoAgotado, 'Tiempo agotado'],
+    [TIPOS_ERROR.datosIncompletos, 'Datos incompletos'],
     [TIPOS_ERROR.desconocido, 'Error inesperado'],
     ['otro', 'Error inesperado'],
   ])('para %j devuelve %j', (tipo, esperado) => {

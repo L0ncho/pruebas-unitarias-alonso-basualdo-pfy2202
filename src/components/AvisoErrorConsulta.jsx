@@ -5,7 +5,8 @@ import { TIPOS_ERROR, tituloError } from '../utils/errores.js'
 
 // Error de una consulta con su alternativa para el usuario.
 // - No encontrado: solo el enlace de salida; reintentar no lo arregla.
-// - Servidor, red o desconocido: Reintentar y el enlace de salida.
+// - Servidor, red, tiempo agotado, datos incompletos o desconocido: Reintentar y el enlace de
+//   salida. El título de cada tipo viene de tituloError.
 // salida: { to, texto } del enlace a otra sección
 function AvisoErrorConsulta({ error, reintentar, salida }) {
   const puedeReintentar = error.tipo !== TIPOS_ERROR.noEncontrado

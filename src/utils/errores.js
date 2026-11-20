@@ -1,9 +1,11 @@
 // Normalización de errores de la API a { tipo, estado, mensaje }.
-// tipo: red | no-encontrado | servidor | cancelado | desconocido
+// tipo: red | no-encontrado | servidor | tiempo-agotado | datos-incompletos | cancelado | desconocido
 export const TIPOS_ERROR = {
   red: 'red',
   noEncontrado: 'no-encontrado',
   servidor: 'servidor',
+  tiempoAgotado: 'tiempo-agotado',
+  datosIncompletos: 'datos-incompletos',
   cancelado: 'cancelado',
   desconocido: 'desconocido',
 }
@@ -12,6 +14,8 @@ const MENSAJES = {
   red: 'No pudimos conectarnos con AirFly. Revisa tu conexión a internet e intenta nuevamente.',
   noEncontrado: 'No encontramos lo que buscas.',
   servidor: 'El servidor tuvo un problema. Intenta nuevamente en unos momentos.',
+  tiempoAgotado: 'El servidor tardó demasiado en responder. Intenta nuevamente.',
+  datosIncompletos: 'La respuesta del servidor llegó incompleta o con un formato inválido. Intenta nuevamente.',
   cancelado: 'La consulta se canceló.',
   formatoInvalido: 'La respuesta del servidor no tiene un formato válido.',
   desconocido: 'Ocurrió un error inesperado. Intenta nuevamente.',
@@ -21,7 +25,22 @@ const TITULOS = {
   [TIPOS_ERROR.red]: 'Sin conexión',
   [TIPOS_ERROR.noEncontrado]: 'No encontrado',
   [TIPOS_ERROR.servidor]: 'Error del servidor',
+  [TIPOS_ERROR.tiempoAgotado]: 'Tiempo agotado',
+  [TIPOS_ERROR.datosIncompletos]: 'Datos incompletos',
   [TIPOS_ERROR.desconocido]: 'Error inesperado',
+}
+
+// Marcas propias de los clientes REST y Apollo. Son instancias de Error: Apollo 4 deja pasar
+// tal cual un Error lanzado en la cadena de links, pero envuelve en UnconventionalError
+// cualquier otro valor, y entonces normalizarError no reconocería la marca
+export function crearErrorTiempoAgotado() {
+  return Object.assign(new Error(MENSAJES.tiempoAgotado), { tiempoAgotado: true })
+}
+
+export function crearErrorDatosIncompletos(causa) {
+  return Object.assign(new Error(MENSAJES.datosIncompletos, { cause: causa }), {
+    datosIncompletos: true,
+  })
 }
 
 const tiposValidos = new Set(Object.values(TIPOS_ERROR))
@@ -81,13 +100,25 @@ function normalizarErroresGraphql(errores) {
 // - un error ya normalizado (se devuelve igual)
 // - { red: true }: los clientes REST y Apollo lo usan solo cuando fetch rechaza (falla de red)
 // - { estado, mensaje }: respuesta HTTP no exitosa; si el servidor envió un mensaje, se usa ese
+// - errores marcados tiempoAgotado o datosIncompletos (crearErrorTiempoAgotado y
+//   crearErrorDatosIncompletos)
 // - un AbortError (cancelación) o un SyntaxError (JSON inválido)
 // - errores de Apollo 4: CombinedGraphQLErrors (según extensions.code), ServerError (según su
-//   código HTTP, igual que REST) y ServerParseError (formato inválido)
+//   código HTTP, igual que REST) y ServerParseError (cuerpo ilegible en una respuesta 2xx:
+//   datos incompletos; con otro código HTTP se usa ese código)
 // Cualquier otro error, incluido un TypeError del propio código, queda como "desconocido"
 // para no pedir al usuario que revise su conexión ante un error de programación
 export function normalizarError(error) {
   if (esNormalizado(error)) return error
+
+  // Antes que AbortError: el tiempo agotado aborta la petición, pero nunca es una cancelación
+  if (error?.tiempoAgotado === true) {
+    return crear(TIPOS_ERROR.tiempoAgotado, null, MENSAJES.tiempoAgotado)
+  }
+
+  if (error?.datosIncompletos === true) {
+    return crear(TIPOS_ERROR.datosIncompletos, null, MENSAJES.datosIncompletos)
+  }
 
   if (error?.name === 'AbortError') {
     return crear(TIPOS_ERROR.cancelado, null, MENSAJES.cancelado)
@@ -108,8 +139,13 @@ export function normalizarError(error) {
     })
   }
 
+  // Apollo lanza ServerParseError con 2xx; con el content-type application/graphql-response+json
+  // también con otros códigos, y entonces manda el código HTTP, igual que en REST
   if (esErrorApollo(error, 'ServerParseError')) {
-    return crear(TIPOS_ERROR.desconocido, null, MENSAJES.formatoInvalido)
+    if (Number.isInteger(error.statusCode) && error.statusCode >= 300) {
+      return normalizarError({ estado: error.statusCode })
+    }
+    return crear(TIPOS_ERROR.datosIncompletos, null, MENSAJES.datosIncompletos)
   }
 
   if (Number.isInteger(error?.estado)) {

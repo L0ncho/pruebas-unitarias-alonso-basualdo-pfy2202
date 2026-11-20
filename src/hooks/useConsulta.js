@@ -2,12 +2,17 @@ import { useEffect, useState } from 'react'
 import { leerCache, obtenerJson } from '../services/clienteHttp.js'
 import { TIPOS_ERROR } from '../utils/errores.js'
 
-// Consulta genérica a la API. Con ruta null no se hace ninguna petición (por ejemplo, un id inválido).
+// Consulta genérica a la API. recurso: { ruta, validar } (ver services/destinos.js); con recurso
+// null no se hace ninguna petición (por ejemplo, un id inválido).
 // Devuelve { datos, cargando, error, reintentar }:
 // - Con datos en caché no hay petición ni indicador de carga.
 // - Mientras carga se mantienen visibles los últimos datos obtenidos.
 // - reintentar pide de nuevo al servidor aunque haya caché.
-export function useConsulta(ruta) {
+// El efecto depende de la ruta y del validador, no del objeto: un recurso creado de nuevo en
+// cada render no repite la petición
+export function useConsulta(recurso) {
+  const ruta = recurso?.ruta ?? null
+  const validar = recurso?.validar
   // El reintento queda atado a su ruta; al cambiar de ruta deja de aplicar
   const [reintento, setReintento] = useState({ ruta: null, numero: 0 })
   // Último resultado: clave de la consulta que lo produjo, últimos datos obtenidos y error
@@ -32,7 +37,7 @@ export function useConsulta(ruta) {
     const claveConsulta = `${ruta}#${numeroReintento}`
     const controlador = new AbortController()
 
-    obtenerJson(ruta, { signal: controlador.signal, forzar })
+    obtenerJson(ruta, { signal: controlador.signal, forzar, validar })
       .then((datosNuevos) => {
         setResultado({ clave: claveConsulta, datos: datosNuevos, error: null })
         // Terminado el reintento, la ruta vuelve a usar la caché si se visita otra vez
@@ -45,7 +50,7 @@ export function useConsulta(ruta) {
       })
 
     return () => controlador.abort()
-  }, [ruta, numeroReintento])
+  }, [ruta, validar, numeroReintento])
 
   function reintentar() {
     if (ruta === null) return

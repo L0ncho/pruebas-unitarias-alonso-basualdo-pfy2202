@@ -1,4 +1,5 @@
-import { normalizarError } from '../utils/errores.js'
+import { conTiempoLimite } from './tiempoLimite.js'
+import { crearErrorDatosIncompletos, normalizarError } from '../utils/errores.js'
 
 // Cliente HTTP único de la aplicación.
 // - Caché en memoria por URL: lo ya obtenido no se vuelve a pedir (salvo con forzar).
@@ -6,7 +7,10 @@ import { normalizarError } from '../utils/errores.js'
 //   petición de red.
 // - Cancelación por consumidor: cada uno pasa su signal; al cancelar, solo se rechaza su promesa.
 //   La petición de red se aborta cuando ya no queda ningún consumidor esperándola.
-// - Un error nunca se guarda en caché.
+// - Tiempo límite por petición de red (incluida la lectura del cuerpo): al vencer, todos los
+//   consumidores que la esperan reciben "tiempo-agotado".
+// - Validación: un JSON ilegible o datos que no pasan el validador dan "datos-incompletos".
+// - Un error o un dato inválido nunca se guarda en caché.
 
 // Relativa a la base del sitio, para que funcione también en GitHub Pages
 const BASE_API = `${import.meta.env.BASE_URL}api`
@@ -52,15 +56,27 @@ async function pedir(url, signal) {
   try {
     return await respuesta.json()
   } catch (error) {
-    throw normalizarError(error)
+    // Una cancelación durante la lectura del cuerpo sigue siendo una cancelación
+    if (error?.name === 'AbortError') throw normalizarError(error)
+    // Una respuesta 2xx con un cuerpo ilegible: los datos no llegaron completos
+    throw normalizarError(crearErrorDatosIncompletos(error))
   }
 }
 
-function crearPeticion(url) {
+function crearPeticion(url, validar) {
   const peticion = { controlador: new AbortController(), consumidores: 0, promesa: null }
 
-  peticion.promesa = pedir(url, peticion.controlador.signal)
+  // El plazo cubre la petición de red compartida, no a cada consumidor. La señal externa es la
+  // del controlador de la petición: se aborta cuando ya nadie la espera (cancelación)
+  peticion.promesa = conTiempoLimite((signal) => pedir(url, signal), {
+    signal: peticion.controlador.signal,
+  })
+    .catch((error) => {
+      throw normalizarError(error)
+    })
     .then((datos) => {
+      // Se valida antes de guardar: un dato inválido nunca entra a la caché
+      if (validar && !validar(datos)) throw normalizarError(crearErrorDatosIncompletos())
       cache.set(url, datos)
       return datos
     })
@@ -92,13 +108,16 @@ function soltar(url, peticion) {
 // Devuelve los datos de la ruta. Opciones:
 // - signal: cancela la espera de este consumidor (se rechaza con tipo "cancelado")
 // - forzar: ignora la caché y pide los datos de nuevo (se une a una petición en curso si existe)
-export function obtenerJson(ruta, { signal, forzar = false } = {}) {
+// - validar: función (datos) => boolean. Si devuelve false, se rechaza con "datos-incompletos"
+//   y nada queda en caché. Una petición compartida usa el validador de quien la creó; por eso
+//   cada ruta se pide con su validador desde un solo lugar (el recurso de su servicio)
+export function obtenerJson(ruta, { signal, forzar = false, validar } = {}) {
   const url = construirUrl(ruta)
 
   if (signal?.aborted) return Promise.reject(errorCancelado())
   if (!forzar && cache.has(url)) return Promise.resolve(cache.get(url))
 
-  const peticion = enCurso.get(url) ?? crearPeticion(url)
+  const peticion = enCurso.get(url) ?? crearPeticion(url, validar)
   peticion.consumidores += 1
 
   return new Promise((resolver, rechazar) => {
