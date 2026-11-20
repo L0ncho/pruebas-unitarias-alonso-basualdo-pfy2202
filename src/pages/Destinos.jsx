@@ -1,8 +1,6 @@
 import { Link, useSearchParams } from 'react-router'
-import Aviso from '../components/Aviso.jsx'
-import AvisoErrorConsulta from '../components/AvisoErrorConsulta.jsx'
 import Boton from '../components/Boton.jsx'
-import Cargando from '../components/Cargando.jsx'
+import EstadoConsulta from '../components/EstadoConsulta.jsx'
 import TituloPagina from '../components/TituloPagina.jsx'
 import FiltroRegion from '../components/destinos/FiltroRegion.jsx'
 import TarjetaDestino from '../components/destinos/TarjetaDestino.jsx'
@@ -50,25 +48,25 @@ function Destinos() {
         Conoce los destinos disponibles, su país y las actividades más populares de cada uno.
       </p>
 
-      {cargando && <Cargando texto="Cargando destinos…" />}
-      {error && <AvisoErrorConsulta error={error} reintentar={reintentar} salida={SALIDA} />}
-
-      {/* Región que se actualiza: al reintentar se mantienen los datos anteriores con aria-busy */}
-      <div aria-busy={cargando}>
-        {destinos?.length === 0 && (
-          <Aviso
-            titulo="Sin destinos disponibles"
-            acciones={
+      <EstadoConsulta
+        cargando={cargando}
+        error={error}
+        reintentar={reintentar}
+        salida={SALIDA}
+        textoCargando="Cargando destinos…"
+        vacio={
+          destinos?.length === 0 && {
+            titulo: 'Sin destinos disponibles',
+            texto: 'Por ahora no hay destinos para mostrar. Vuelve a intentarlo en unos momentos.',
+            acciones: (
               <>
                 <Boton onClick={reintentar}>Reintentar</Boton>
                 <Link to={SALIDA.to}>{SALIDA.texto}</Link>
               </>
-            }
-          >
-            Por ahora no hay destinos para mostrar. Vuelve a intentarlo en unos momentos.
-          </Aviso>
-        )}
-
+            ),
+          }
+        }
+      >
         {destinos?.length > 0 && (
           <>
             <FiltroRegion region={region} onCambiar={cambiarRegion} />
@@ -94,7 +92,7 @@ function Destinos() {
             )}
           </>
         )}
-      </div>
+      </EstadoConsulta>
     </section>
   )
 }

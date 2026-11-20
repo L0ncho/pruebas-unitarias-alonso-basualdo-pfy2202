@@ -1,9 +1,8 @@
 import { useId, useState } from 'react'
 import { Link, useParams } from 'react-router'
-import Aviso from '../components/Aviso.jsx'
 import AvisoErrorConsulta from '../components/AvisoErrorConsulta.jsx'
 import Boton from '../components/Boton.jsx'
-import Cargando from '../components/Cargando.jsx'
+import EstadoConsulta from '../components/EstadoConsulta.jsx'
 import ProveedorApollo from '../components/ProveedorApollo.jsx'
 import TituloPagina from '../components/TituloPagina.jsx'
 import EncabezadoDestino from '../components/destino/EncabezadoDestino.jsx'
@@ -49,21 +48,21 @@ function ContenidoDestino({ id }) {
       <TituloPagina texto={tituloPestana} />
       <h1>{titulo}</h1>
 
-      {cargando && <Cargando texto="Cargando vuelos y hoteles…" />}
-      {error && <AvisoErrorConsulta error={error} reintentar={reintentar} salida={SALIDA} />}
-
-      {/* Región que se actualiza: al reintentar se mantienen los datos anteriores con aria-busy */}
-      <div aria-busy={cargando}>
+      <EstadoConsulta
+        cargando={cargando}
+        error={error}
+        reintentar={reintentar}
+        salida={SALIDA}
+        textoCargando="Cargando vuelos y hoteles…"
+        vacio={
+          sinOferta && {
+            titulo: 'Sin vuelos ni hoteles disponibles',
+            texto: `Por ahora no hay vuelos ni hoteles disponibles para ${destino.nombre}.`,
+            acciones: <Link to={SALIDA.to}>Ver otros destinos</Link>,
+          }
+        }
+      >
         {destino && <EncabezadoDestino destino={destino} />}
-
-        {sinOferta && (
-          <Aviso
-            titulo="Sin vuelos ni hoteles disponibles"
-            acciones={<Link to={SALIDA.to}>Ver otros destinos</Link>}
-          >
-            Por ahora no hay vuelos ni hoteles disponibles para {destino.nombre}.
-          </Aviso>
-        )}
 
         {destino && !sinOferta && (
           <div className="grid gap-6 md:grid-cols-[minmax(0,1fr)_17rem] md:items-start">
@@ -115,7 +114,7 @@ function ContenidoDestino({ id }) {
             />
           </div>
         )}
-      </div>
+      </EstadoConsulta>
     </>
   )
 }
