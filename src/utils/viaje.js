@@ -43,6 +43,25 @@ export function estaDisponible(cantidad) {
   return Number.isInteger(cantidad) && cantidad > 0
 }
 
+// Opción elegida según los datos actuales: la de ese id, solo si existe en la lista y sigue
+// disponible. Si después de una actualización ya no está o se agotó, se trata como no elegida
+// (sin total ni advertencias de esa opción). Estado derivado: no se borra ningún id guardado.
+// cantidad: función que entrega los asientos o habitaciones disponibles de la opción
+export function opcionElegida(lista, id, cantidad) {
+  if (!Array.isArray(lista) || id === null || id === undefined) return undefined
+  const opcion = lista.find((item) => item.id === id)
+  return opcion && estaDisponible(cantidad(opcion)) ? opcion : undefined
+}
+
+// Vuelo y hotel elegidos en el destino, con la regla de opcionElegida
+export function vueloElegido(destino, vueloId) {
+  return opcionElegida(destino?.vuelos, vueloId, (vuelo) => vuelo.asientosDisponibles)
+}
+
+export function hotelElegido(destino, hotelId) {
+  return opcionElegida(destino?.hoteles, hotelId, (hotel) => hotel.habitacionesDisponibles)
+}
+
 // Anticipación recomendada para llegar al aeropuerto: 2 horas en vuelos nacionales y 3 en
 // internacionales. Se decide por el país del destino
 export function horasAnticipacionAeropuerto(pais) {

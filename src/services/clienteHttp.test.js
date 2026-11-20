@@ -1,6 +1,6 @@
 import { delay, http, HttpResponse } from 'msw'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import { TIEMPO_LIMITE_MS } from '../config/api.js'
+import { TIEMPO_LIMITE_MS, VIGENCIA_CACHE_MS } from '../config/api.js'
 import { DEMORA_LENTA, esperarRed, noEncontrado, respuestaFallaRest } from '../mocks/handlers.js'
 import { API, crearServidor } from '../test/servidor.js'
 import { convertirEntero } from '../utils/ids.js'
@@ -37,6 +37,7 @@ const RUTA = '/prueba'
 
 let obtenerJson
 let leerCache
+let cacheVigente
 // Peticiones que llegaron al mock: permiten contar los accesos a la red y ver si se abortaron
 let peticiones
 
@@ -56,7 +57,7 @@ beforeAll(() => server.listen({ onUnhandledRequest: 'error' }))
 
 beforeEach(async () => {
   vi.resetModules()
-  ;({ obtenerJson, leerCache } = await import('./clienteHttp.js'))
+  ;({ obtenerJson, leerCache, cacheVigente } = await import('./clienteHttp.js'))
 
   peticiones = []
   server.events.on('request:start', ({ request }) => {
@@ -407,5 +408,101 @@ describe('tiempo límite', () => {
     expect(consulta.error).toMatchObject({ tipo: TIPOS_ERROR.cancelado })
     expect(peticiones[0].signal.aborted).toBe(true)
     expect(vi.getTimerCount()).toBe(0)
+  })
+})
+
+describe('vigencia de la caché', () => {
+  // Solo se finge la hora (Date): la demora del mock sigue con temporizadores reales
+  const INICIO = new Date('2026-12-01T12:00:00Z')
+
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(INICIO)
+  })
+  afterEach(() => vi.useRealTimers())
+
+  function avanzarHora(ms) {
+    vi.setSystemTime(Date.now() + ms)
+  }
+
+  it('un dato vigente (4:59) no se vuelve a pedir', async () => {
+    const primera = await obtenerJson(RUTA)
+    avanzarHora(VIGENCIA_CACHE_MS - 1000)
+
+    expect(cacheVigente(RUTA)).toBe(true)
+    expect(await obtenerJson(RUTA)).toBe(primera)
+    expect(peticiones).toHaveLength(1)
+  })
+
+  it('un dato vencido (5:00) se sigue leyendo y obtenerJson lo pide en segundo plano', async () => {
+    const primera = await obtenerJson(RUTA)
+    avanzarHora(VIGENCIA_CACHE_MS)
+
+    // La vista lo muestra al instante mientras se actualiza
+    expect(cacheVigente(RUTA)).toBe(false)
+    expect(leerCache(RUTA)).toBe(primera)
+
+    const nueva = await obtenerJson(RUTA)
+
+    expect(peticiones).toHaveLength(2)
+    expect(nueva).not.toBe(primera)
+    expect(leerCache(RUTA)).toBe(nueva)
+    // La vigencia vuelve a contar desde la nueva respuesta
+    expect(cacheVigente(RUTA)).toBe(true)
+    avanzarHora(VIGENCIA_CACHE_MS - 1000)
+    expect(cacheVigente(RUTA)).toBe(true)
+  })
+
+  it('dos consumidores de un dato vencido comparten una sola actualización', async () => {
+    await obtenerJson(RUTA)
+    avanzarHora(VIGENCIA_CACHE_MS)
+
+    await Promise.all([obtenerJson(RUTA), obtenerJson(RUTA)])
+    expect(peticiones).toHaveLength(2)
+  })
+
+  it('forzar pide aunque el dato esté vigente', async () => {
+    await obtenerJson(RUTA)
+    await obtenerJson(RUTA, { forzar: true })
+    expect(peticiones).toHaveLength(2)
+  })
+
+  it.each([
+    ['un 500', () => HttpResponse.json({ mensaje: 'Falla' }, { status: 500 }), TIPOS_ERROR.servidor],
+    ['datos inválidos', () => HttpResponse.json({ no: 'es lista' }), TIPOS_ERROR.datosIncompletos],
+    ['sin conexión', () => HttpResponse.error(), TIPOS_ERROR.red],
+  ])('si la actualización falla con %s, el dato vencido se queda y sigue vencido', async (_caso, respuesta, tipo) => {
+    const validar = Array.isArray
+    const primera = await obtenerJson(RUTA, { validar })
+    avanzarHora(VIGENCIA_CACHE_MS)
+    server.use(http.get(`${API}/prueba`, respuesta, { once: true }))
+
+    await expect(obtenerJson(RUTA, { validar })).rejects.toMatchObject({ tipo })
+
+    expect(peticiones).toHaveLength(2)
+    expect(leerCache(RUTA)).toBe(primera)
+    expect(cacheVigente(RUTA)).toBe(false)
+
+    // La siguiente consulta vuelve a intentarlo
+    const nueva = await obtenerJson(RUTA, { validar })
+    expect(peticiones).toHaveLength(3)
+    expect(leerCache(RUTA)).toBe(nueva)
+  })
+
+  it('si la actualización agota el plazo, el dato vencido se queda', async () => {
+    const primera = await obtenerJson(RUTA)
+    // Ahora se fingen también los temporizadores para no esperar 15 s
+    vi.useFakeTimers()
+    vi.setSystemTime(Date.now() + VIGENCIA_CACHE_MS)
+    server.use(http.get(`${API}/prueba`, () => new Promise(() => {})))
+
+    let error
+    obtenerJson(RUTA).catch((motivo) => (error = motivo))
+    await vi.advanceTimersByTimeAsync(TIEMPO_LIMITE_MS)
+
+    expect(error).toMatchObject({ tipo: TIPOS_ERROR.tiempoAgotado })
+    expect(peticiones).toHaveLength(2)
+    expect(leerCache(RUTA)).toBe(primera)
+    expect(cacheVigente(RUTA)).toBe(false)
   })
 })

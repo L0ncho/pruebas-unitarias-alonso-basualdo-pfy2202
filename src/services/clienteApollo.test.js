@@ -1,13 +1,14 @@
 import { CombinedGraphQLErrors, ServerError } from '@apollo/client/errors'
 import { graphql, http, HttpResponse } from 'msw'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import { crearClienteApollo } from './clienteApollo.js'
+import { crearClienteApollo, leerRecepcion } from './clienteApollo.js'
 import { OPCIONES_VIAJE, variablesOpcionesViaje } from './consultas.js'
-import { TIEMPO_LIMITE_MS } from '../config/api.js'
+import { TIEMPO_LIMITE_MS, VIGENCIA_CACHE_MS } from '../config/api.js'
 import { DEMORA_LENTA, ENDPOINT_GRAPHQL } from '../mocks/handlers.js'
 import { guardarModoSimulacion, MODOS } from '../mocks/simulacion.js'
 import { crearAlmacenamiento } from '../test/almacenamiento.js'
 import { crearServidor } from '../test/servidor.js'
+import { derivarEstadoOpcionesViaje, politicaCacheApollo } from '../utils/consulta.js'
 import { normalizarError, TIPOS_ERROR } from '../utils/errores.js'
 
 // Integración del cliente Apollo real (HttpLink + InMemoryCache) con el handler GraphQL real
@@ -357,5 +358,168 @@ describe('variablesOpcionesViaje', () => {
 
   it('normaliza el id como texto del entero', () => {
     expect(variablesOpcionesViaje('007')).toEqual({ id: '7' })
+  })
+})
+
+describe('vigencia de la caché de Apollo', () => {
+  // Solo se finge la hora (Date): la demora del mock sigue con temporizadores reales
+  const INICIO = new Date('2026-12-01T12:00:00Z')
+  const OPERACION = 'OpcionesViaje'
+  const VARIABLES = variablesOpcionesViaje('3')
+
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(INICIO)
+  })
+  afterEach(() => vi.useRealTimers())
+
+  function avanzarHora(ms) {
+    vi.setSystemTime(Date.now() + ms)
+  }
+
+  function esperar(ms) {
+    return new Promise((resolver) => setTimeout(resolver, ms))
+  }
+
+  // Observa la consulta con la política que elegiría useOpcionesViaje al entrar al destino
+  // (las mismas opciones que recibe useQuery) y guarda cada resultado que entrega Apollo
+  function observarComoElHook() {
+    const politica = politicaCacheApollo(leerRecepcion(cliente, OPERACION, VARIABLES), Date.now())
+    const emisiones = []
+    const observable = cliente.watchQuery({ query: OPCIONES_VIAJE, variables: VARIABLES, ...politica })
+    const suscripcion = observable.subscribe((resultado) => emisiones.push(resultado))
+    return { politica, emisiones, observable, suscripcion }
+  }
+
+  function guardadoEnCache() {
+    return cliente.cache.extract()[cliente.cache.identify({ __typename: 'Destino', id: 3 })]
+  }
+
+  describe('registro de recepción', () => {
+    it('anota la hora de una respuesta válida y la renueva con cada respuesta', async () => {
+      expect(leerRecepcion(cliente, OPERACION, VARIABLES)).toBeUndefined()
+
+      await consultar('3')
+      expect(leerRecepcion(cliente, OPERACION, VARIABLES)).toBe(INICIO.getTime())
+
+      avanzarHora(60000)
+      await cliente.query({ query: OPCIONES_VIAJE, variables: VARIABLES, fetchPolicy: 'network-only' })
+      expect(leerRecepcion(cliente, OPERACION, VARIABLES)).toBe(INICIO.getTime() + 60000)
+    })
+
+    it('no anota errores (NOT_FOUND, 500) ni datos inválidos', async () => {
+      await errorDeConsulta('99')
+      expect(leerRecepcion(cliente, OPERACION, variablesOpcionesViaje('99'))).toBeUndefined()
+
+      guardarModoSimulacion(MODOS.errorServidor)
+      await errorDeConsulta('3')
+      guardarModoSimulacion(MODOS.normal)
+
+      server.use(graphql.query('OpcionesViaje', () => HttpResponse.json({ data: { destino: { id: 3 } } })))
+      await errorDeConsulta('3')
+
+      expect(leerRecepcion(cliente, OPERACION, VARIABLES)).toBeUndefined()
+    })
+
+    it('cada cliente tiene su propio registro', async () => {
+      await consultar('3')
+      expect(leerRecepcion(crearClienteApollo(), OPERACION, VARIABLES)).toBeUndefined()
+    })
+  })
+
+  it('un dato vigente (4:59): cache-first, se entrega desde la caché y no pide', async () => {
+    await consultar('3')
+    avanzarHora(VIGENCIA_CACHE_MS - 1000)
+
+    const { politica, emisiones, suscripcion } = observarComoElHook()
+    await vi.waitFor(() => expect(emisiones.length).toBeGreaterThan(0))
+    await esperar(1000)
+    suscripcion.unsubscribe()
+
+    expect(politica.fetchPolicy).toBe('cache-first')
+    expect(emisiones.every((r) => r.loading === false && r.data.destino.id === 3)).toBe(true)
+    expect(peticiones).toHaveLength(1)
+  })
+
+  it('un dato vencido (5:00): se entrega al instante con loading y se actualiza con 1 sola petición', async () => {
+    await consultar('3')
+    avanzarHora(VIGENCIA_CACHE_MS)
+
+    const { politica, emisiones, observable, suscripcion } = observarComoElHook()
+    expect(politica).toEqual({ fetchPolicy: 'cache-and-network', nextFetchPolicy: 'cache-first' })
+
+    await vi.waitFor(() => expect(emisiones.at(-1)?.loading).toBe(false))
+
+    // Primera emisión: los datos de la caché, con loading (la vista los mantiene con aria-busy)
+    expect(emisiones[0]).toMatchObject({ loading: true, data: { destino: { id: 3 } } })
+    expect(derivarEstadoOpcionesViaje(emisiones[0])).toMatchObject({
+      cargando: true,
+      datos: expect.objectContaining({ id: 3 }),
+    })
+    // Ninguna emisión deja la vista sin datos
+    expect(emisiones.every((r) => r.data?.destino?.id === 3)).toBe(true)
+    expect(peticiones).toHaveLength(2)
+    // La vigencia vuelve a contar desde la nueva respuesta (vi.waitFor también avanza la hora falsa)
+    expect(leerRecepcion(cliente, OPERACION, VARIABLES)).toBeGreaterThanOrEqual(INICIO.getTime() + VIGENCIA_CACHE_MS)
+
+    // nextFetchPolicy: después de la actualización vuelve a cache-first; una escritura en la
+    // caché no dispara otra petición
+    expect(observable.options.fetchPolicy).toBe('cache-first')
+    cliente.cache.modify({
+      id: cliente.cache.identify({ __typename: 'Destino', id: 3 }),
+      fields: { descripcion: () => 'Descripción cambiada' },
+    })
+    await esperar(1000)
+    suscripcion.unsubscribe()
+    expect(peticiones).toHaveLength(2)
+  })
+
+  it.each([
+    ['un 500', () => guardarModoSimulacion(MODOS.errorServidor), TIPOS_ERROR.servidor],
+    ['sin conexión', () => guardarModoSimulacion(MODOS.sinConexion), TIPOS_ERROR.red],
+    [
+      'datos inválidos',
+      () => server.use(graphql.query('OpcionesViaje', () => HttpResponse.json({ data: { destino: { id: 3 } } }))),
+      TIPOS_ERROR.datosIncompletos,
+    ],
+  ])('si la actualización falla con %s, se mantienen los datos junto al error', async (_caso, fallar, tipo) => {
+    await consultar('3')
+    const recibido = leerRecepcion(cliente, OPERACION, VARIABLES)
+    avanzarHora(VIGENCIA_CACHE_MS)
+    fallar()
+
+    const { emisiones, suscripcion } = observarComoElHook()
+    await vi.waitFor(() => expect(emisiones.at(-1)?.error).toBeDefined())
+    suscripcion.unsubscribe()
+
+    const ultima = emisiones.at(-1)
+    expect(derivarEstadoOpcionesViaje(ultima)).toEqual({
+      datos: expect.objectContaining({ id: 3 }),
+      cargando: false,
+      error: expect.objectContaining({ tipo }),
+    })
+    expect(peticiones).toHaveLength(2)
+    // El dato vencido sigue en la caché y sigue vencido: no se anotó la respuesta fallida
+    expect(guardadoEnCache()).toBeDefined()
+    expect(leerRecepcion(cliente, OPERACION, VARIABLES)).toBe(recibido)
+  })
+
+  it('si la actualización agota el plazo, se mantienen los datos junto al error', async () => {
+    await consultar('3')
+    // Ahora se fingen también los temporizadores para no esperar 15 s
+    vi.useFakeTimers()
+    vi.setSystemTime(Date.now() + VIGENCIA_CACHE_MS)
+    guardarModoSimulacion(MODOS.sinRespuesta)
+
+    const { emisiones, suscripcion } = observarComoElHook()
+    await vi.advanceTimersByTimeAsync(TIEMPO_LIMITE_MS)
+    suscripcion.unsubscribe()
+
+    expect(derivarEstadoOpcionesViaje(emisiones.at(-1))).toEqual({
+      datos: expect.objectContaining({ id: 3 }),
+      cargando: false,
+      error: expect.objectContaining({ tipo: TIPOS_ERROR.tiempoAgotado }),
+    })
+    expect(guardadoEnCache()).toBeDefined()
   })
 })

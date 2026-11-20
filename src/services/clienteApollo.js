@@ -1,5 +1,6 @@
 import { ApolloClient, ApolloLink, HttpLink, InMemoryCache } from '@apollo/client'
 import { map } from 'rxjs'
+import { ahora } from './reloj.js'
 import { conTiempoLimite } from './tiempoLimite.js'
 import { crearErrorDatosIncompletos } from '../utils/errores.js'
 import { validarOpcionesViaje } from '../utils/validacion.js'
@@ -65,11 +66,46 @@ const enlaceValidacion = new ApolloLink((operation, forward) =>
   ),
 )
 
+// Hora de recepción de cada operación, por cliente. InMemoryCache no guarda cuándo llegó un dato;
+// este registro lo hace para calcular su vigencia. WeakMap: cada cliente (el de la aplicación o
+// uno nuevo de cada prueba) tiene el suyo
+const recepcionesPorCliente = new WeakMap()
+
+function claveRecepcion(operacion, variables) {
+  return `${operacion}:${JSON.stringify(variables ?? {})}`
+}
+
+// Hora en que llegó la última respuesta válida de la operación con esas variables, o undefined
+export function leerRecepcion(cliente, operacion, variables) {
+  return recepcionesPorCliente.get(cliente)?.get(claveRecepcion(operacion, variables))
+}
+
+// Anota la hora de cada respuesta que Apollo va a guardar en la caché. Va por fuera del enlace de
+// validación: solo ve resultados válidos. Una respuesta con errors no se guarda ni se anota
+function crearEnlaceRecepcion(recepciones) {
+  return new ApolloLink((operation, forward) =>
+    forward(operation).pipe(
+      map((resultado) => {
+        const tieneErrores = Array.isArray(resultado.errors) && resultado.errors.length > 0
+        if (!tieneErrores) {
+          recepciones.set(claveRecepcion(operation.operationName, operation.variables), ahora())
+        }
+        return resultado
+      }),
+    ),
+  )
+}
+
 // Crea un cliente con su propia caché. La aplicación usa uno solo (clienteApollo); las pruebas
 // crean uno nuevo para partir con la caché vacía
 export function crearClienteApollo() {
-  return new ApolloClient({
-    link: ApolloLink.from([enlaceValidacion, new HttpLink({ uri: ENDPOINT, fetch: fetchConTiempoLimite })]),
+  const recepciones = new Map()
+  const cliente = new ApolloClient({
+    link: ApolloLink.from([
+      crearEnlaceRecepcion(recepciones),
+      enlaceValidacion,
+      new HttpLink({ uri: ENDPOINT, fetch: fetchConTiempoLimite }),
+    ]),
     // Caché normalizada por tipo e id (Destino:7, Vuelo:101, Hotel:201): un destino ya consultado
     // se lee desde aquí sin repetir la petición
     cache: new InMemoryCache({
@@ -80,6 +116,8 @@ export function crearClienteApollo() {
       },
     }),
   })
+  recepcionesPorCliente.set(cliente, recepciones)
+  return cliente
 }
 
 export const clienteApollo = crearClienteApollo()

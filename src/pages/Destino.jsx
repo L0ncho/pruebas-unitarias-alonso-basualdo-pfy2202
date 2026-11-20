@@ -15,16 +15,10 @@ import { useOpcionesViaje } from '../hooks/useOpcionesViaje.js'
 import { useVolver } from '../hooks/useVolver.js'
 import { errorIdInvalido, TIPOS_ERROR } from '../utils/errores.js'
 import { convertirEntero } from '../utils/ids.js'
-import { estaDisponible } from '../utils/viaje.js'
+import { hotelElegido, vueloElegido } from '../utils/viaje.js'
 
 const SALIDA = { to: '/destinos', texto: 'Ver todos los destinos' }
 const TITULO_NO_ENCONTRADO = 'Destino no encontrado'
-
-// Busca la opción elegida en los datos del destino. Si no existe o se agotó, no hay selección
-function opcionElegida(lista, id, cantidad) {
-  const opcion = lista.find((item) => item.id === id)
-  return opcion && estaDisponible(cantidad(opcion)) ? opcion : undefined
-}
 
 // Vuelos, hoteles y selección del viaje de un destino ya validado
 function ContenidoDestino({ id }) {
@@ -39,8 +33,10 @@ function ContenidoDestino({ id }) {
   const titulo = destino?.nombre ?? (noEncontrado ? TITULO_NO_ENCONTRADO : 'Vuelos y hoteles')
   const tituloPestana = destino?.nombre ?? (noEncontrado ? TITULO_NO_ENCONTRADO : 'Destino')
 
-  const vuelo = destino && opcionElegida(destino.vuelos, vueloId, (v) => v.asientosDisponibles)
-  const hotel = destino && opcionElegida(destino.hoteles, hotelId, (h) => h.habitacionesDisponibles)
+  // Con los datos actuales: tras una actualización, una opción que ya no existe o se agotó
+  // queda como no elegida
+  const vuelo = vueloElegido(destino, vueloId)
+  const hotel = hotelElegido(destino, hotelId)
   const sinOferta = destino && destino.vuelos.length === 0 && destino.hoteles.length === 0
 
   function limpiarSeleccion() {

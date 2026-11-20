@@ -1,8 +1,12 @@
+import { ahora } from './reloj.js'
 import { conTiempoLimite } from './tiempoLimite.js'
 import { crearErrorDatosIncompletos, normalizarError } from '../utils/errores.js'
+import { estaVigente } from '../utils/vigencia.js'
 
 // Cliente HTTP único de la aplicación.
-// - Caché en memoria por URL: lo ya obtenido no se vuelve a pedir (salvo con forzar).
+// - Caché en memoria por URL con vigencia (VIGENCIA_CACHE_MS desde que llega la respuesta): un
+//   dato vigente no se vuelve a pedir (salvo con forzar); uno vencido se sigue pudiendo leer con
+//   leerCache, pero obtenerJson lo pide de nuevo. Si esa petición falla, el dato vencido se queda.
 // - Peticiones en curso compartidas: varios consumidores de la misma URL esperan una sola
 //   petición de red.
 // - Cancelación por consumidor: cada uno pasa su signal; al cancelar, solo se rechaza su promesa.
@@ -15,6 +19,7 @@ import { crearErrorDatosIncompletos, normalizarError } from '../utils/errores.js
 // Relativa a la base del sitio, para que funcione también en GitHub Pages
 const BASE_API = `${import.meta.env.BASE_URL}api`
 
+// url → { datos, recibidoEn }
 const cache = new Map()
 const enCurso = new Map()
 
@@ -26,9 +31,15 @@ function errorCancelado() {
   return normalizarError(new DOMException('La consulta se canceló.', 'AbortError'))
 }
 
-// Consulta síncrona de la caché: permite saber en el primer render si hay datos y evitar el indicador de carga
+// Consulta síncrona de la caché: permite saber en el primer render si hay datos y evitar el
+// indicador de carga. Entrega el dato aunque esté vencido: la vista lo muestra mientras se actualiza
 export function leerCache(ruta) {
-  return cache.get(construirUrl(ruta))
+  return cache.get(construirUrl(ruta))?.datos
+}
+
+// Si el dato en caché de la ruta está vigente en momento (por defecto, ahora)
+export function cacheVigente(ruta, momento = ahora()) {
+  return estaVigente(cache.get(construirUrl(ruta))?.recibidoEn, momento)
 }
 
 async function leerMensaje(respuesta) {
@@ -77,7 +88,8 @@ function crearPeticion(url, validar) {
     .then((datos) => {
       // Se valida antes de guardar: un dato inválido nunca entra a la caché
       if (validar && !validar(datos)) throw normalizarError(crearErrorDatosIncompletos())
-      cache.set(url, datos)
+      // La vigencia se cuenta desde que llega una respuesta válida
+      cache.set(url, { datos, recibidoEn: ahora() })
       return datos
     })
     .finally(() => {
@@ -111,11 +123,13 @@ function soltar(url, peticion) {
 // - validar: función (datos) => boolean. Si devuelve false, se rechaza con "datos-incompletos"
 //   y nada queda en caché. Una petición compartida usa el validador de quien la creó; por eso
 //   cada ruta se pide con su validador desde un solo lugar (el recurso de su servicio)
+// Sin forzar, responde desde la caché solo si el dato está vigente; si venció, lo pide de nuevo
+// (con el mismo tiempo límite y la misma validación)
 export function obtenerJson(ruta, { signal, forzar = false, validar } = {}) {
   const url = construirUrl(ruta)
 
   if (signal?.aborted) return Promise.reject(errorCancelado())
-  if (!forzar && cache.has(url)) return Promise.resolve(cache.get(url))
+  if (!forzar && cacheVigente(ruta)) return Promise.resolve(cache.get(url).datos)
 
   const peticion = enCurso.get(url) ?? crearPeticion(url, validar)
   peticion.consumidores += 1
