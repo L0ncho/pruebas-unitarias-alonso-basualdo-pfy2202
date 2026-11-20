@@ -7,6 +7,14 @@ import { convertirEntero } from '../utils/ids.js'
 export const API = `${import.meta.env.BASE_URL}api`
 export const ENDPOINT_GRAPHQL = `${import.meta.env.BASE_URL}graphql`
 
+// Si la URL es de la API simulada (api/... o graphql, en el mismo origen y bajo la base del sitio).
+// browser.js lo usa para advertir en la consola cuando una de ellas no tiene manejador
+export function esPeticionDeLaApi(url) {
+  const { origin, pathname } = new URL(url, location.href)
+  if (origin !== location.origin) return false
+  return pathname === API || pathname.startsWith(`${API}/`) || pathname === ENDPOINT_GRAPHQL
+}
+
 const DEMORA_MINIMA = 400
 const DEMORA_MAXIMA = 900
 export const DEMORA_LENTA = 4000
@@ -19,9 +27,9 @@ function demoraNormal() {
 
 // Simulación de la red, común a REST y GraphQL: lee el modo del selector del pie, espera la
 // demora que corresponde y devuelve el modo. Cada API arma después su propia respuesta de falla.
-// En el modo "sin respuesta" la espera nunca termina: el cliente la corta con su tiempo límite
-export async function esperarRed() {
-  const modo = leerModoSimulacion()
+// En el modo "sin respuesta" la espera nunca termina: el cliente la corta con su tiempo límite.
+// modo permite simular la red sin falla (solo la demora normal) aunque haya una activa
+export async function esperarRed(modo = leerModoSimulacion()) {
   if (modo === MODOS.sinRespuesta) await delay('infinite')
   await delay(modo === MODOS.lenta ? DEMORA_LENTA : demoraNormal())
   return modo
@@ -177,7 +185,11 @@ export const handlers = [
 
   // Endpoint GraphQL único: cualquier operación se ejecuta contra el esquema
   graphql.link(ENDPOINT_GRAPHQL).operation(async ({ query, variables, operationName }) => {
-    const falla = respuestaFallaGraphql(await esperarRed())
+    // Un id inválido o un destino inexistente responde su error (BAD_USER_INPUT o NOT_FOUND)
+    // aunque esté activa una falla simulada: la falla solo afecta a consultas que sí existen
+    const idInexistente =
+      variables?.id !== undefined && !destinos.some((destino) => destino.id === convertirEntero(variables.id))
+    const falla = respuestaFallaGraphql(await esperarRed(idInexistente ? MODOS.normal : undefined))
     if (falla) return falla
 
     const ejecutar = await cargarEjecutorGraphql()

@@ -1,7 +1,6 @@
 import { ALMACENES, guardarAlmacenamiento, leerAlmacenamiento } from './almacenamiento.js'
 
-// Tema guardado por el usuario. Misma clave y valores que el script de index.html que aplica el
-// tema antes de cargar React. La clave lleva el prefijo del sitio porque otros sitios publicados
+// Tema guardado por el usuario. La clave lleva el prefijo del sitio porque otros sitios publicados
 // en el mismo dominio comparten el localStorage
 export const CLAVE_TEMA = 'airfly-tema'
 
@@ -9,6 +8,24 @@ export const TEMAS = {
   claro: 'claro',
   oscuro: 'oscuro',
 }
+
+// Script que aplica el tema antes del primer pintado (sin destello del tema claro). vite.config.js
+// lo inserta en el <head> de index.html como script clásico y síncrono, así la clave y los valores
+// salen solo de este archivo. Leer localStorage va en try/catch: con el almacenamiento bloqueado
+// lanza SecurityError y se sigue la preferencia del sistema
+export const SCRIPT_TEMA_INICIAL = `(function () {
+  var clave = ${JSON.stringify(CLAVE_TEMA)}
+  var claro = ${JSON.stringify(TEMAS.claro)}
+  var oscuro = ${JSON.stringify(TEMAS.oscuro)}
+  var tema = null
+  try {
+    tema = localStorage.getItem(clave)
+  } catch (e) {}
+  if (tema !== oscuro && tema !== claro) {
+    tema = window.matchMedia('(prefers-color-scheme: dark)').matches ? oscuro : claro
+  }
+  document.documentElement.setAttribute('data-tema', tema)
+})()`
 
 // Tema elegido explícitamente, o null si no hay uno válido o localStorage no está disponible
 // (entonces se sigue la preferencia del sistema)

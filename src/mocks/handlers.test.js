@@ -1,7 +1,7 @@
 import { print } from 'graphql'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { destinos, hoteles, vuelos } from './datos.js'
-import { ENDPOINT_GRAPHQL } from './handlers.js'
+import { ENDPOINT_GRAPHQL, esPeticionDeLaApi } from './handlers.js'
 import { guardarModoSimulacion, MODOS, OPCIONES_SIMULACION } from './simulacion.js'
 import { OPCIONES_VIAJE } from '../services/consultas.js'
 import { crearAlmacenamiento } from '../test/almacenamiento.js'
@@ -304,4 +304,34 @@ describe('GraphQL: consulta OpcionesViaje', () => {
 
     await expect(consultar('1')).rejects.toThrow(TypeError)
   })
+
+  it.each([MODOS.errorServidor, MODOS.sinConexion, MODOS.sinRespuesta])(
+    'con la falla "%s" activa, un destino inexistente o un id inválido responde su error',
+    async (modo) => {
+      guardarModoSimulacion(modo)
+
+      const inexistente = await consultar('99')
+      expect(inexistente.status).toBe(200)
+      expect((await inexistente.json()).errors[0].extensions).toEqual({ code: 'NOT_FOUND' })
+
+      const invalido = await (await consultar('abc')).json()
+      expect(invalido.errors[0].extensions).toEqual({ code: 'BAD_USER_INPUT' })
+    },
+  )
+})
+
+describe('esPeticionDeLaApi', () => {
+  it.each([`${API}/destinos`, `${API}/destinos/7`, `${API}`, ENDPOINT_GRAPHQL, `http://localhost${API}/otro?x=1`])(
+    '%s es de la API',
+    (url) => {
+      expect(esPeticionDeLaApi(url)).toBe(true)
+    },
+  )
+
+  it.each(['/src/main.jsx', '/favicon.svg', '/apis', '/graphql/otro', 'https://otro.sitio/api/destinos'])(
+    '%s no es de la API',
+    (url) => {
+      expect(esPeticionDeLaApi(url)).toBe(false)
+    },
+  )
 })
