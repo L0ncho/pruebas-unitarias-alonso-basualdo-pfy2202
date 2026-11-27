@@ -1,5 +1,29 @@
 # Pruebas
 
+## Resumen
+
+**470 pruebas en 36 archivos, todas aprobadas.** Cobertura total: Stmts 98,59 %, Branch 95,71 %, Funcs 98,51 % y Lines 99,41 % (umbral: 80 % en Stmts, Funcs y Lines, y 70 % en Branch).
+
+```bash
+npm test                # todas las pruebas
+npm run test:watch      # modo observación: repite las pruebas afectadas al guardar
+npm run test:coverage   # pruebas con reporte de cobertura y umbral mínimo
+```
+
+`npm run test:coverage` muestra la tabla en la terminal y genera el reporte HTML en `coverage/` (ignorado por git). Para verlo, abre `coverage/index.html` en el navegador: permite recorrer cada archivo con las líneas y ramas sin cubrir marcadas.
+
+## Índice
+
+- [Resumen](#resumen)
+- [Herramientas](#herramientas)
+- [Estrategia por capas](#estrategia-por-capas)
+- [Escenarios cubiertos en las páginas](#escenarios-cubiertos-en-las-páginas)
+- [Infraestructura de pruebas](#infraestructura-de-pruebas)
+- [Archivos de prueba](#archivos-de-prueba)
+- [Cobertura](#cobertura)
+- [Matriz de pruebas en navegadores](#matriz-de-pruebas-en-navegadores)
+- [Errores encontrados y corregidos](#errores-encontrados-y-corregidos)
+
 ## Herramientas
 
 | Herramienta | Versión | Qué aporta |
@@ -59,16 +83,6 @@ Todas las consultas de la interfaz son por rol, etiqueta o texto accesible; no h
 | [`estilos.js`](../src/test/estilos.js) | Sustituye las hojas de estilo: las pruebas no procesan CSS |
 
 El tiempo límite se prueba con `jest.useFakeTimers()`, `avanzar` y user-event con `advanceTimers`; el vencimiento de la caché, con `simularSoloFecha` y `jest.setSystemTime`. Ninguna prueba espera tiempo real más allá de la demora normal del mock (400 a 900 ms).
-
-## Cómo ejecutar
-
-```bash
-npm test                # todas las pruebas
-npm run test:watch      # modo observación: repite las pruebas afectadas al guardar
-npm run test:coverage   # pruebas con reporte de cobertura y umbral mínimo
-```
-
-`npm run test:coverage` muestra la tabla en la terminal y genera el reporte HTML en `coverage/` (ignorado por git). Para verlo, abre `coverage/index.html` en el navegador: permite recorrer cada archivo con las líneas y ramas sin cubrir marcadas.
 
 ## Archivos de prueba
 
@@ -177,7 +191,7 @@ Las pruebas de carga diferida de `App.test.jsx` corren cada una dentro de `jest.
 
 ## Matriz de pruebas en navegadores
 
-Pruebas manuales en el [sitio publicado](https://l0ncho.github.io/pruebas-unitarias-alonso-basualdo-pfy2202/), realizadas el 20-11-2026. Complementan a las automatizadas en lo que jsdom no reproduce: motores de navegador reales, el Service Worker de MSW, el diseño a 360 px, el tema sin destello al recargar y la consola del navegador. Incluyen el tiempo límite (casos 9 y 10), el 404 con "Error del servidor" activo (caso 12) y la advertencia de rutas de la API sin manejador (caso 17).
+Pruebas manuales en el [sitio publicado](https://l0ncho.github.io/pruebas-unitarias-alonso-basualdo-pfy2202/), realizadas el 27-11-2026. Complementan a las automatizadas en lo que jsdom no reproduce: motores de navegador reales, el Service Worker de MSW, el diseño a 360 px, el tema sin destello al recargar y la consola del navegador. Incluyen el tiempo límite (casos 9 y 10), el 404 con "Error del servidor" activo (caso 12) y la advertencia de rutas de la API sin manejador (caso 17).
 
 **Navegadores elegidos:** dos navegadores con motores distintos. Chrome en Windows usa Chromium; Safari en iPhone usa WebKit, que es además el motor de todos los navegadores en iOS, así que también cubre el uso en celular.
 
@@ -185,7 +199,7 @@ Pruebas manuales en el [sitio publicado](https://l0ncho.github.io/pruebas-unitar
 
 | | Chrome (Windows) | Safari (iPhone) |
 | --- | --- | --- |
-| **Versión** | Chrome 158.0.8127.37 en Windows 11 25H2, en escritorio y a 360 px | Safari en iPhone con iOS 27.2.1 |
+| **Versión** | Chrome 158.0.8127.88 en Windows 11 25H2 (compilación 26200.9974), en escritorio y a 360 px | Safari en iPhone con iOS 27.2.1 |
 
 | # | Caso | Pasos | Resultado esperado | Chrome (Windows) | Safari (iPhone) |
 | --- | --- | --- | --- | --- | --- |
@@ -194,7 +208,7 @@ Pruebas manuales en el [sitio publicado](https://l0ncho.github.io/pruebas-unitar
 | 3 | Selección y total | En San Pedro de Atacama, elegir el vuelo de AeroAndes y el Hotel Desierto Rojo; luego el Lodge Altiplano; luego Limpiar selección | Total $679.990 y 5 noches de viaje y de hotel; advertencia de fechas con Lodge Altiplano; Limpiar vuelve al mensaje inicial | OK | OK |
 | 4 | Errores con el selector "Simulación de la API" | "Error del servidor (500)" y abrir un destino no visitado; volver a Normal y Reintentar; repetir con "Sin conexión" | "Error del servidor" o "Sin conexión", con Reintentar y enlace a Destinos; al reintentar en Normal llegan los datos | OK | OK |
 | 5 | Página 404 | Abrir una URL inexistente, por ejemplo `/cualquier-cosa` | "Página no encontrada" con Volver e Ir al inicio | OK | OK |
-| 6 | Recarga en una ruta interna | Recargar estando en `/destinos/1` | La página del destino carga normalmente (no aparece el 404 de GitHub Pages) | OK | OK |
+| 6 | Recarga en una ruta interna | Recargar estando en `/destinos/1` | La página del destino carga normalmente (no aparece el 404 de GitHub Pages). La consola muestra un 404 del documento: GitHub Pages no tiene un archivo para esa ruta y responde con `404.html`, que es una copia de `index.html`, así que la aplicación carga igual. Es el comportamiento esperado al publicar una aplicación con rutas en GitHub Pages | OK | OK |
 | 7 | Pantalla de celular o 360 px | Recorrer Destinos y un destino a 360 px (en Chrome) o en el iPhone | Una columna, sin desplazamiento horizontal; el resumen del viaje al final | OK | OK |
 | 8 | Ambos temas | Alternar "Modo oscuro" y recorrer las páginas | Textos legibles en ambos temas; la preferencia se mantiene al recargar | OK | OK |
 | 9 | Tiempo límite en el listado | Elegir "Sin respuesta" y abrir Destinos sin haberlo visitado; luego Normal y Reintentar | Indicador de carga y, a los 15 s, "Tiempo agotado" con Reintentar; al reintentar en Normal llega el listado | OK | OK |
@@ -207,7 +221,7 @@ Pruebas manuales en el [sitio publicado](https://l0ncho.github.io/pruebas-unitar
 | 16 | Vencimiento de la caché | Abrir Destinos y un destino, volver a Inicio, esperar 5 minutos y volver a abrirlos | Los datos aparecen al instante con el indicador de carga encima y se actualizan con una sola petición, sin parpadeo | OK | OK |
 | 17 | Advertencia por una ruta de la API sin manejador | Ejecutar en la consola `fetch('/pruebas-unitarias-alonso-basualdo-pfy2202/api/destinoss')` | La consola muestra la advertencia de MSW de una petición sin manejador | OK | No probado (no hay consola en el iPhone) |
 
-**Resultado:** los casos 1 a 16 aprobados en ambos navegadores. La advertencia en la consola (caso 17) se aprobó en Chrome y no se probó en Safari, porque el iPhone no tiene consola. No se encontraron fallas.
+**Resultado:** en la repetición del 27-11-2026, todos los casos tuvieron el mismo resultado que en la ejecución anterior: los casos 1 a 16 aprobados en ambos navegadores. La advertencia en la consola (caso 17) se aprobó en Chrome y no se probó en Safari, porque el iPhone no tiene consola. No se encontraron fallas.
 
 ## Errores encontrados y corregidos
 
