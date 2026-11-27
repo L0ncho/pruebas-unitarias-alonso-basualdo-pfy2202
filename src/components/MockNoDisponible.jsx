@@ -35,10 +35,18 @@ const PASOS_SERVICE_WORKER = [
 
 const PASOS_CARGA = ['Revisa tu conexión a internet y recarga la página.']
 
+// Acción por defecto del botón: recargar no es navegación interna, vuelve a intentar el arranque
+// del mock
+function recargarPagina() {
+  window.location.reload()
+}
+
 // Se muestra en lugar de la aplicación cuando la API simulada no pudo arrancar. Sin ella todas
 // las consultas fallarían y se verían como "sin conexión", lo que no explica el problema real.
-// Está fuera del router: es la misma pantalla en cualquier ruta
-function MockNoDisponible({ estado }) {
+// Está fuera del router: es la misma pantalla en cualquier ruta.
+// alRecargar: acción del botón "Recargar la página" (por defecto, recargarPagina; las pruebas
+// pasan una función espía)
+function MockNoDisponible({ estado, alRecargar = recargarPagina }) {
   const aviso = AVISOS[estado] ?? AVISOS[ESTADOS_MOCK.errorInicio]
   const pasos = estado === ESTADOS_MOCK.errorCarga ? PASOS_CARGA : PASOS_SERVICE_WORKER
 
@@ -57,8 +65,7 @@ function MockNoDisponible({ estado }) {
           tipo="error"
           titulo={aviso.titulo}
           acciones={
-            // Recargar no es navegación interna: vuelve a intentar el arranque del mock
-            <Boton onClick={() => window.location.reload()}>Recargar la página</Boton>
+            <Boton onClick={() => alRecargar()}>Recargar la página</Boton>
           }
         >
           {EXPLICACION} {aviso.causa}
