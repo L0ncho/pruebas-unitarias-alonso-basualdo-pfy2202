@@ -2,7 +2,7 @@
 
 AirFly no tiene un servidor propio: las dos APIs se simulan en el navegador con MSW 2 (Mock Service Worker). Un Service Worker intercepta las peticiones del sitio y responde con los datos de [`datos.js`](../src/mocks/datos.js) según los handlers de [`handlers.js`](../src/mocks/handlers.js).
 
-Las rutas son relativas a la base del sitio (`import.meta.env.BASE_URL`): en desarrollo, `/api/…` y `/graphql`; en GitHub Pages, `/viajes-alonso-basualdo-pfy2202/api/…` y `/viajes-alonso-basualdo-pfy2202/graphql`.
+Las rutas son relativas a la base del sitio (`import.meta.env.BASE_URL`): en desarrollo, `/api/…` y `/graphql`; en GitHub Pages, `/pruebas-unitarias-alonso-basualdo-pfy2202/api/…` y `/pruebas-unitarias-alonso-basualdo-pfy2202/graphql`.
 
 Cada respuesta espera entre 400 y 900 ms (4 s en el modo lento) para que se vean los indicadores de carga. Los clientes cortan cualquier petición a los 15 s (tiempo límite) y validan la estructura de cada respuesta antes de guardarla ([decisiones técnicas](decisiones-tecnicas.md#capa-de-datos)).
 

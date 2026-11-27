@@ -51,7 +51,7 @@ Las pruebas de los handlers y de los clientes usan los handlers reales del mock 
 
 ## Matriz de pruebas en navegadores
 
-Pruebas manuales en el [sitio publicado](https://l0ncho.github.io/viajes-alonso-basualdo-pfy2202/), realizadas el 20-11-2026.
+Pruebas manuales en el [sitio publicado](https://l0ncho.github.io/pruebas-unitarias-alonso-basualdo-pfy2202/), realizadas el 20-11-2026.
 
 **Navegadores elegidos:** dos navegadores con motores distintos. Chrome en Windows usa Chromium; Safari en iPhone usa WebKit, que es además el motor de todos los navegadores en iOS, así que también cubre el uso en celular.
 
@@ -79,7 +79,7 @@ Pruebas manuales en el [sitio publicado](https://l0ncho.github.io/viajes-alonso-
 | 14 | Destino sin oferta | Abrir Madrid | "Sin vuelos ni hoteles disponibles", con enlace a otros destinos | OK | OK |
 | 15 | Tema sin destello al recargar | Elegir "Modo oscuro" y recargar varias páginas | La página aparece directamente en el tema oscuro, sin un destello del claro | OK | OK |
 | 16 | Vencimiento de la caché | Abrir Destinos y un destino, volver a Inicio, esperar 5 minutos y volver a abrirlos | Los datos aparecen al instante con el indicador de carga encima y se actualizan con una sola petición, sin parpadeo | OK | OK |
-| 17 | Advertencia por una ruta de la API sin manejador | Ejecutar en la consola `fetch('/viajes-alonso-basualdo-pfy2202/api/destinoss')` | La consola muestra la advertencia de MSW de una petición sin manejador | OK | No probado (no hay consola en el iPhone) |
+| 17 | Advertencia por una ruta de la API sin manejador | Ejecutar en la consola `fetch('/pruebas-unitarias-alonso-basualdo-pfy2202/api/destinoss')` | La consola muestra la advertencia de MSW de una petición sin manejador | OK | No probado (no hay consola en el iPhone) |
 
 **Resultado:** los casos 1 a 16 aprobados en ambos navegadores. La advertencia en la consola (caso 17) se aprobó en Chrome y no se probó en Safari, porque el iPhone no tiene consola. No se encontraron fallas.
 

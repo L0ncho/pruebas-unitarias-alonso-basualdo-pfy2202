@@ -2,8 +2,8 @@
 
 Aplicación de una sola página (SPA) en React para una agencia de viajes. El usuario explora los destinos disponibles (API REST simulada), elige uno y compara sus vuelos y hoteles (API GraphQL simulada) para armar una cotización de su viaje. Ambas APIs se simulan con MSW (Mock Service Worker) en el navegador, con demoras realistas y errores que se pueden provocar desde la interfaz.
 
-- **Sitio publicado:** https://l0ncho.github.io/viajes-alonso-basualdo-pfy2202/
-- **Repositorio:** https://github.com/L0ncho/viajes-alonso-basualdo-pfy2202
+- **Sitio publicado:** https://l0ncho.github.io/pruebas-unitarias-alonso-basualdo-pfy2202/
+- **Repositorio:** https://github.com/L0ncho/pruebas-unitarias-alonso-basualdo-pfy2202
 
 ## Revisión rápida
 
@@ -61,7 +61,7 @@ npm install       # instala las dependencias
 npm run dev       # servidor de desarrollo (base "/")
 npm run lint      # revisión del código con ESLint
 npm run test      # pruebas con Vitest
-npm run build     # compilación en dist/ (base "/viajes-alonso-basualdo-pfy2202/")
+npm run build     # compilación en dist/ (base "/pruebas-unitarias-alonso-basualdo-pfy2202/")
 npm run preview   # sirve dist/ con la misma base que GitHub Pages
 npm run deploy    # compila y publica dist/ en la rama gh-pages
 ```

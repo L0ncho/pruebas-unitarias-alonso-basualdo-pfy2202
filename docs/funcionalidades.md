@@ -1,6 +1,6 @@
 # Funcionalidades
 
-Qué incluye AirFly, dónde está en el código, qué pruebas lo cubren y cómo comprobarlo en el sitio. Las rutas del sitio son relativas a https://l0ncho.github.io/viajes-alonso-basualdo-pfy2202/
+Qué incluye AirFly, dónde está en el código, qué pruebas lo cubren y cómo comprobarlo en el sitio. Las rutas del sitio son relativas a https://l0ncho.github.io/pruebas-unitarias-alonso-basualdo-pfy2202/
 
 ## Interfaz responsiva
 
@@ -92,10 +92,10 @@ Qué incluye AirFly, dónde está en el código, qué pruebas lo cubren y cómo 
 
 - Repositorio con la estructura descrita en el [README](../README.md#estructura) y documentación en `docs/`.
 - Publicación con `npm run deploy` (`gh-pages -d dist`, que antes ejecuta `npm run build`) en la rama `gh-pages` ([`package.json`](../package.json)).
-- [`vite.config.js`](../vite.config.js): `base` "/viajes-alonso-basualdo-pfy2202/" al compilar y en `npm run preview`; copia de `index.html` como `404.html`.
+- [`vite.config.js`](../vite.config.js): `base` "/pruebas-unitarias-alonso-basualdo-pfy2202/" al compilar y en `npm run preview`; copia de `index.html` como `404.html`.
 - El worker de MSW se registra con la base del sitio ([`browser.js`](../src/mocks/browser.js)), por eso la API simulada funciona en GitHub Pages ([detalle](api-simulada.md#msw-en-producción-y-arranque-del-worker)).
 
-**Cómo comprobarlo:** abrir el [sitio publicado](https://l0ncho.github.io/viajes-alonso-basualdo-pfy2202/) y, en *Application → Service Workers*, ver `mockServiceWorker.js` con el alcance de la subcarpeta.
+**Cómo comprobarlo:** abrir el [sitio publicado](https://l0ncho.github.io/pruebas-unitarias-alonso-basualdo-pfy2202/) y, en *Application → Service Workers*, ver `mockServiceWorker.js` con el alcance de la subcarpeta.
 
 ## Pruebas
 
