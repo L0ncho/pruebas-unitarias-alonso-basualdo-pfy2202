@@ -40,4 +40,8 @@ module.exports = {
     '!src/**/*.test.{js,jsx}',
   ],
   coverageReporters: ['text', 'text-summary', 'html'],
+  // Mínimo de cobertura global: npm run test:coverage falla si algún porcentaje queda bajo el umbral
+  coverageThreshold: {
+    global: { statements: 80, functions: 80, lines: 80, branches: 70 },
+  },
 }
