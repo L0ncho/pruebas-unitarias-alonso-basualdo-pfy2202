@@ -1,4 +1,3 @@
-import { describe, expect, it } from 'vitest'
 import { VIGENCIA_CACHE_MS } from '../config/api.js'
 import { estaVigente } from './vigencia.js'
 

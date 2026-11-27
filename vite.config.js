@@ -39,7 +39,7 @@ export default defineConfig(({ command, isPreview }) => ({
   // El sitio publicado vive en la subcarpeta del repositorio; en desarrollo se usa la raíz.
   // vite preview también corre con command "serve": sin isPreview serviría dist en la raíz,
   // aunque la compilación apunta a la subcarpeta, y no reproduciría GitHub Pages
-  base: command === 'build' || isPreview ? '/viajes-alonso-basualdo-pfy2202/' : '/',
+  base: command === 'build' || isPreview ? '/pruebas-unitarias-alonso-basualdo-pfy2202/' : '/',
   plugins: [react(), tailwindcss(), copiarIndexComo404(), scriptTemaInicial()],
   // graphql se divide en dos archivos:
   // - graphql-lenguaje (analizador y utilidades de lenguaje): lo usan de forma estática MSW (para
@@ -64,11 +64,5 @@ export default defineConfig(({ command, isPreview }) => ({
         },
       },
     },
-  },
-  // Vitest: las pruebas corren en Node, sin entorno de navegador. La configuración común
-  // (location para las rutas relativas de la API) está en src/test/configuracion.js
-  test: {
-    environment: 'node',
-    setupFiles: ['./src/test/configuracion.js'],
   },
 }))

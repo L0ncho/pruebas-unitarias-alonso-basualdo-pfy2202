@@ -1,4 +1,3 @@
-import { describe, expect, it } from 'vitest'
 import { ESTADOS_MOCK, esFallaDescargaModulo, estadoMock, soportaServiceWorker } from './mock.js'
 
 // Errores tal como los entregan los navegadores

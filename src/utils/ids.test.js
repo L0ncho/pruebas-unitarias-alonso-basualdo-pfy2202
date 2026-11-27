@@ -1,4 +1,3 @@
-import { describe, expect, it } from 'vitest'
 import { convertirEntero } from './ids.js'
 
 describe('convertirEntero', () => {

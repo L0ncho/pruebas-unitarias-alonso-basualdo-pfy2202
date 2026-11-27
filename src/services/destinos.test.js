@@ -1,29 +1,21 @@
 import { http, HttpResponse } from 'msw'
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { TIEMPO_LIMITE_MS } from '../config/api.js'
 import { DEMORA_LENTA } from '../mocks/handlers.js'
 import { guardarModoSimulacion, MODOS } from '../mocks/simulacion.js'
-import { crearAlmacenamiento } from '../test/almacenamiento.js'
-import { API, crearServidor } from '../test/servidor.js'
+import { API, server } from '../test/servidor.js'
 import { TIPOS_ERROR } from '../utils/errores.js'
 
 // Servicio de destinos contra el handler real. Cada prueba importa copias nuevas del servicio
-// y del cliente HTTP (vi.resetModules) para partir con la caché vacía
-
-const server = crearServidor()
+// y del cliente HTTP (jest.resetModules) para partir con la caché vacía. El servidor MSW y la
+// limpieza de sessionStorage están en src/test/configuracion.js
 
 let obtenerDestinos
 let RUTA_DESTINOS
 let leerCache
 let peticiones
 
-beforeAll(() => {
-  vi.stubGlobal('sessionStorage', crearAlmacenamiento())
-  server.listen({ onUnhandledRequest: 'error' })
-})
-
 beforeEach(async () => {
-  vi.resetModules()
+  jest.resetModules()
   ;({ obtenerDestinos, RUTA_DESTINOS } = await import('./destinos.js'))
   ;({ leerCache } = await import('./clienteHttp.js'))
 
@@ -34,12 +26,6 @@ beforeEach(async () => {
 afterEach(() => {
   server.events.removeAllListeners()
   server.resetHandlers()
-  sessionStorage.clear()
-})
-
-afterAll(() => {
-  server.close()
-  vi.unstubAllGlobals()
 })
 
 describe('obtenerDestinos', () => {
@@ -132,8 +118,8 @@ describe('obtenerDestinos', () => {
 
 describe('modos de simulación con tiempo límite', () => {
   // Temporizadores falsos: la demora del mock y el plazo avanzan sin esperar en tiempo real
-  beforeEach(() => vi.useFakeTimers())
-  afterEach(() => vi.useRealTimers())
+  beforeEach(() => jest.useFakeTimers())
+  afterEach(() => jest.useRealTimers())
 
   function capturar(promesa) {
     const resultado = { estado: 'pendiente' }
@@ -148,10 +134,10 @@ describe('modos de simulación con tiempo límite', () => {
     guardarModoSimulacion(MODOS.sinRespuesta)
     const resultado = capturar(obtenerDestinos())
 
-    await vi.advanceTimersByTimeAsync(TIEMPO_LIMITE_MS - 1)
+    await jest.advanceTimersByTimeAsync(TIEMPO_LIMITE_MS - 1)
     expect(resultado.estado).toBe('pendiente')
 
-    await vi.advanceTimersByTimeAsync(1)
+    await jest.advanceTimersByTimeAsync(1)
     expect(resultado.error).toEqual({
       tipo: TIPOS_ERROR.tiempoAgotado,
       estado: null,
@@ -165,10 +151,10 @@ describe('modos de simulación con tiempo límite', () => {
     guardarModoSimulacion(MODOS.lenta)
     const resultado = capturar(obtenerDestinos())
 
-    await vi.advanceTimersByTimeAsync(DEMORA_LENTA - 1)
+    await jest.advanceTimersByTimeAsync(DEMORA_LENTA - 1)
     expect(resultado.estado).toBe('pendiente')
 
-    await vi.advanceTimersByTimeAsync(1)
+    await jest.advanceTimersByTimeAsync(1)
     expect(resultado.estado).toBe('resuelta')
     expect(leerCache(RUTA_DESTINOS)).toBe(resultado.valor)
   })
@@ -178,9 +164,9 @@ describe('modos de simulación con tiempo límite', () => {
     const controlador = new AbortController()
     const resultado = capturar(obtenerDestinos({ signal: controlador.signal }))
 
-    await vi.advanceTimersByTimeAsync(3000)
+    await jest.advanceTimersByTimeAsync(3000)
     controlador.abort()
-    await vi.advanceTimersByTimeAsync(TIEMPO_LIMITE_MS)
+    await jest.advanceTimersByTimeAsync(TIEMPO_LIMITE_MS)
 
     expect(resultado.error).toMatchObject({ tipo: TIPOS_ERROR.cancelado })
   })

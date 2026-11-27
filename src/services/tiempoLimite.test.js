@@ -1,4 +1,3 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { conTiempoLimite } from './tiempoLimite.js'
 import { TIEMPO_LIMITE_MS } from '../config/api.js'
 import { DEMORA_LENTA } from '../mocks/handlers.js'
@@ -38,8 +37,8 @@ function capturar(promesa) {
   return resultado
 }
 
-beforeEach(() => vi.useFakeTimers())
-afterEach(() => vi.useRealTimers())
+beforeEach(() => jest.useFakeTimers())
+afterEach(() => jest.useRealTimers())
 
 describe('conTiempoLimite', () => {
   it('el plazo es de 15 s y supera la respuesta lenta del mock', () => {
@@ -51,31 +50,31 @@ describe('conTiempoLimite', () => {
     const simulada = peticionSimulada(DEMORA_LENTA)
     const resultado = capturar(conTiempoLimite(simulada.ejecutar))
 
-    await vi.advanceTimersByTimeAsync(DEMORA_LENTA)
+    await jest.advanceTimersByTimeAsync(DEMORA_LENTA)
 
     expect(resultado).toEqual({ estado: 'resuelta', valor: 'datos' })
-    expect(vi.getTimerCount()).toBe(0)
+    expect(jest.getTimerCount()).toBe(0)
   })
 
   it('al vencer el plazo se rechaza con "tiempo-agotado" y se aborta la petición', async () => {
     const simulada = peticionSimulada(60000)
     const resultado = capturar(conTiempoLimite(simulada.ejecutar))
 
-    await vi.advanceTimersByTimeAsync(TIEMPO_LIMITE_MS - 1)
+    await jest.advanceTimersByTimeAsync(TIEMPO_LIMITE_MS - 1)
     expect(resultado.estado).toBe('pendiente')
 
-    await vi.advanceTimersByTimeAsync(1)
+    await jest.advanceTimersByTimeAsync(1)
     expect(resultado.estado).toBe('rechazada')
     expect(resultado.error).toBeInstanceOf(Error)
     expect(normalizarError(resultado.error).tipo).toBe(TIPOS_ERROR.tiempoAgotado)
     expect(simulada.signal.aborted).toBe(true)
-    expect(vi.getTimerCount()).toBe(0)
+    expect(jest.getTimerCount()).toBe(0)
   })
 
   it('vence aunque la petición ignore la señal', async () => {
     const resultado = capturar(conTiempoLimite(() => new Promise(() => {})))
 
-    await vi.advanceTimersByTimeAsync(TIEMPO_LIMITE_MS)
+    await jest.advanceTimersByTimeAsync(TIEMPO_LIMITE_MS)
 
     expect(normalizarError(resultado.error).tipo).toBe(TIPOS_ERROR.tiempoAgotado)
   })
@@ -84,15 +83,15 @@ describe('conTiempoLimite', () => {
     const controlador = new AbortController()
     const simulada = peticionSimulada(60000)
     const resultado = capturar(conTiempoLimite(simulada.ejecutar, { signal: controlador.signal }))
-    await vi.advanceTimersByTimeAsync(1000)
+    await jest.advanceTimersByTimeAsync(1000)
 
     controlador.abort()
-    await vi.advanceTimersByTimeAsync(0)
+    await jest.advanceTimersByTimeAsync(0)
 
     expect(normalizarError(resultado.error).tipo).toBe(TIPOS_ERROR.cancelado)
     expect(simulada.signal.aborted).toBe(true)
     // El temporizador del plazo se limpió: no vence después
-    expect(vi.getTimerCount()).toBe(0)
+    expect(jest.getTimerCount()).toBe(0)
   })
 
   it('cancelar después de vencer no cambia el resultado', async () => {
@@ -101,9 +100,9 @@ describe('conTiempoLimite', () => {
       conTiempoLimite(peticionSimulada(60000).ejecutar, { signal: controlador.signal }),
     )
 
-    await vi.advanceTimersByTimeAsync(TIEMPO_LIMITE_MS)
+    await jest.advanceTimersByTimeAsync(TIEMPO_LIMITE_MS)
     controlador.abort()
-    await vi.advanceTimersByTimeAsync(0)
+    await jest.advanceTimersByTimeAsync(0)
 
     expect(normalizarError(resultado.error).tipo).toBe(TIPOS_ERROR.tiempoAgotado)
   })
@@ -114,7 +113,7 @@ describe('conTiempoLimite', () => {
     const simulada = peticionSimulada(1000)
 
     const resultado = capturar(conTiempoLimite(simulada.ejecutar, { signal: controlador.signal }))
-    await vi.advanceTimersByTimeAsync(0)
+    await jest.advanceTimersByTimeAsync(0)
 
     expect(simulada.signal.aborted).toBe(true)
     expect(normalizarError(resultado.error).tipo).toBe(TIPOS_ERROR.cancelado)
@@ -122,12 +121,12 @@ describe('conTiempoLimite', () => {
 
   it('al terminar se quita el listener de la señal externa', async () => {
     const controlador = new AbortController()
-    const quitar = vi.spyOn(controlador.signal, 'removeEventListener')
+    const quitar = jest.spyOn(controlador.signal, 'removeEventListener')
 
     const resultado = capturar(
       conTiempoLimite(peticionSimulada(100).ejecutar, { signal: controlador.signal }),
     )
-    await vi.advanceTimersByTimeAsync(100)
+    await jest.advanceTimersByTimeAsync(100)
 
     expect(resultado.estado).toBe('resuelta')
     expect(quitar).toHaveBeenCalledWith('abort', expect.any(Function))

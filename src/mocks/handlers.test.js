@@ -1,28 +1,13 @@
 import { print } from 'graphql'
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { destinos, hoteles, vuelos } from './datos.js'
 import { ENDPOINT_GRAPHQL, esPeticionDeLaApi } from './handlers.js'
 import { guardarModoSimulacion, MODOS, OPCIONES_SIMULACION } from './simulacion.js'
 import { OPCIONES_VIAJE } from '../services/consultas.js'
-import { crearAlmacenamiento } from '../test/almacenamiento.js'
-import { API, crearServidor } from '../test/servidor.js'
+import { API } from '../test/servidor.js'
 
 // Pruebas de los handlers REST y GraphQL reales con msw/node, sin pasar por los clientes:
-// así se verifica la respuesta tal como la entrega la API simulada
-
-const server = crearServidor()
-
-beforeAll(() => {
-  vi.stubGlobal('sessionStorage', crearAlmacenamiento())
-  server.listen({ onUnhandledRequest: 'error' })
-})
-
-afterEach(() => sessionStorage.clear())
-
-afterAll(() => {
-  server.close()
-  vi.unstubAllGlobals()
-})
+// así se verifica la respuesta tal como la entrega la API simulada. El servidor MSW y la
+// limpieza de sessionStorage (modo de simulación) están en src/test/configuracion.js
 
 describe('GET /api/destinos', () => {
   it('en modo normal responde la lista con país y actividades', async () => {
@@ -69,8 +54,8 @@ describe('GET /api/destinos', () => {
 
 describe('modo "sin respuesta"', () => {
   // Temporizadores falsos: se avanza mucho más que cualquier demora del mock sin esperar
-  beforeEach(() => vi.useFakeTimers())
-  afterEach(() => vi.useRealTimers())
+  beforeEach(() => jest.useFakeTimers())
+  afterEach(() => jest.useRealTimers())
 
   it.each([
     ['REST', () => ({ url: `${API}/destinos`, opciones: {} })],
@@ -95,7 +80,7 @@ describe('modo "sin respuesta"', () => {
       (error) => (estado = error.name),
     )
 
-    await vi.advanceTimersByTimeAsync(60000)
+    await jest.advanceTimersByTimeAsync(60000)
     expect(estado).toBe('pendiente')
 
     controlador.abort()

@@ -4,7 +4,6 @@ import {
   ServerParseError,
   UnconventionalError,
 } from '@apollo/client/errors'
-import { describe, expect, it } from 'vitest'
 import {
   crearErrorDatosIncompletos,
   crearErrorTiempoAgotado,

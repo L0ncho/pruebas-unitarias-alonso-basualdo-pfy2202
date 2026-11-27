@@ -1,15 +1,16 @@
 import { delay, http, HttpResponse } from 'msw'
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { TIEMPO_LIMITE_MS, VIGENCIA_CACHE_MS } from '../config/api.js'
 import { DEMORA_LENTA, esperarRed, noEncontrado, respuestaFallaRest } from '../mocks/handlers.js'
-import { API, crearServidor } from '../test/servidor.js'
+import { API, server } from '../test/servidor.js'
+import { simularSoloFecha } from '../test/temporizadores.js'
 import { convertirEntero } from '../utils/ids.js'
 import { TIPOS_ERROR } from '../utils/errores.js'
 
 // Pruebas del cliente HTTP con msw/node. Usan un recurso propio de las pruebas, que no depende
 // de los datos del mock, pero con la misma simulación de red (demora y fallas) de los handlers.
-// Cada prueba importa una copia nueva del módulo (vi.resetModules), así parte con la caché
-// y las peticiones en curso vacías sin agregar al código una función solo para pruebas
+// Cada prueba importa una copia nueva del módulo (jest.resetModules), así parte con la caché
+// y las peticiones en curso vacías. El servidor MSW es el compartido de src/test/configuracion.js;
+// los handlers del recurso de prueba se agregan antes de cada prueba (resetHandlers los quita)
 
 const ELEMENTOS = [
   { id: 1, nombre: 'Uno' },
@@ -17,7 +18,7 @@ const ELEMENTOS = [
   { id: 3, nombre: 'Tres' },
 ]
 
-const server = crearServidor(
+const HANDLERS_PRUEBA = [
   http.get(`${API}/prueba`, async () => {
     const falla = respuestaFallaRest(await esperarRed())
     if (falla) return falla
@@ -31,7 +32,7 @@ const server = crearServidor(
     const elemento = ELEMENTOS.find((item) => item.id === id)
     return elemento ? HttpResponse.json(elemento) : noEncontrado(`No existe un elemento con el id «${params.id}».`)
   }),
-)
+]
 
 const RUTA = '/prueba'
 
@@ -53,10 +54,9 @@ function esperar(ms) {
 // Los handlers tardan entre 400 y 900 ms
 const DEMORA_MAXIMA_MOCK = 900
 
-beforeAll(() => server.listen({ onUnhandledRequest: 'error' }))
-
 beforeEach(async () => {
-  vi.resetModules()
+  server.use(...HANDLERS_PRUEBA)
+  jest.resetModules()
   ;({ obtenerJson, leerCache, cacheVigente } = await import('./clienteHttp.js'))
 
   peticiones = []
@@ -69,8 +69,6 @@ afterEach(() => {
   server.events.removeAllListeners()
   server.resetHandlers()
 })
-
-afterAll(() => server.close())
 
 describe('caché', () => {
   it('lo cacheado no vuelve a pedirse', async () => {
@@ -297,8 +295,8 @@ describe('validación', () => {
 describe('tiempo límite', () => {
   // Temporizadores falsos: no se esperan 15 s reales. La demora del mock (delay de MSW) también
   // usa setTimeout y avanza con ellos
-  beforeEach(() => vi.useFakeTimers())
-  afterEach(() => vi.useRealTimers())
+  beforeEach(() => jest.useFakeTimers())
+  afterEach(() => jest.useRealTimers())
 
   // Handler que nunca responde, como el modo "sin respuesta". Una promesa pendiente en vez de
   // delay('infinite'), que deja un temporizador propio de MSW: así getTimerCount cuenta solo el
@@ -320,10 +318,10 @@ describe('tiempo límite', () => {
     sinRespuesta()
     const resultado = capturar(obtenerJson(RUTA))
 
-    await vi.advanceTimersByTimeAsync(TIEMPO_LIMITE_MS - 1)
+    await jest.advanceTimersByTimeAsync(TIEMPO_LIMITE_MS - 1)
     expect(resultado.estado).toBe('pendiente')
 
-    await vi.advanceTimersByTimeAsync(1)
+    await jest.advanceTimersByTimeAsync(1)
     expect(resultado.error).toMatchObject({ tipo: TIPOS_ERROR.tiempoAgotado, estado: null })
     expect(peticiones[0].signal.aborted).toBe(true)
     expect(leerCache(RUTA)).toBeUndefined()
@@ -341,7 +339,7 @@ describe('tiempo límite', () => {
     )
     const resultado = capturar(obtenerJson(RUTA))
 
-    await vi.advanceTimersByTimeAsync(TIEMPO_LIMITE_MS)
+    await jest.advanceTimersByTimeAsync(TIEMPO_LIMITE_MS)
 
     expect(resultado.error).toMatchObject({ tipo: TIPOS_ERROR.tiempoAgotado })
   })
@@ -355,12 +353,12 @@ describe('tiempo límite', () => {
     )
     const resultado = capturar(obtenerJson(RUTA))
 
-    await vi.advanceTimersByTimeAsync(DEMORA_LENTA)
+    await jest.advanceTimersByTimeAsync(DEMORA_LENTA)
 
     expect(resultado.estado).toBe('resuelta')
     expect(resultado.valor).toHaveLength(ELEMENTOS.length)
     // El temporizador del plazo se limpió al responder
-    expect(vi.getTimerCount()).toBe(0)
+    expect(jest.getTimerCount()).toBe(0)
   })
 
   it('dos consumidores: uno cancela y luego vence el plazo; el otro recibe "tiempo-agotado"', async () => {
@@ -369,9 +367,9 @@ describe('tiempo límite', () => {
     const consumidorA = capturar(obtenerJson(RUTA, { signal: controladorA.signal }))
     const consumidorB = capturar(obtenerJson(RUTA, { signal: new AbortController().signal }))
 
-    await vi.advanceTimersByTimeAsync(5000)
+    await jest.advanceTimersByTimeAsync(5000)
     controladorA.abort()
-    await vi.advanceTimersByTimeAsync(0)
+    await jest.advanceTimersByTimeAsync(0)
 
     // A recibe la cancelación; la red sigue porque B la espera
     expect(consumidorA.error).toMatchObject({ tipo: TIPOS_ERROR.cancelado })
@@ -380,18 +378,18 @@ describe('tiempo límite', () => {
     expect(peticiones[0].signal.aborted).toBe(false)
 
     // El plazo cuenta desde que partió la petición, no desde la cancelación
-    await vi.advanceTimersByTimeAsync(TIEMPO_LIMITE_MS - 5000)
+    await jest.advanceTimersByTimeAsync(TIEMPO_LIMITE_MS - 5000)
 
     expect(consumidorB.error).toMatchObject({ tipo: TIPOS_ERROR.tiempoAgotado })
     expect(consumidorB.error.tipo).not.toBe(TIPOS_ERROR.red)
     expect(peticiones[0].signal.aborted).toBe(true)
     expect(leerCache(RUTA)).toBeUndefined()
-    expect(vi.getTimerCount()).toBe(0)
+    expect(jest.getTimerCount()).toBe(0)
 
-    // Reintentar crea una petición nueva con su propio plazo
-    server.resetHandlers()
+    // Reintentar crea una petición nueva con su propio plazo (vuelve el handler que responde)
+    server.resetHandlers(...HANDLERS_PRUEBA)
     const reintento = capturar(obtenerJson(RUTA))
-    await vi.advanceTimersByTimeAsync(DEMORA_MAXIMA_MOCK)
+    await jest.advanceTimersByTimeAsync(DEMORA_MAXIMA_MOCK)
     expect(reintento.estado).toBe('resuelta')
     expect(peticiones).toHaveLength(2)
   })
@@ -400,14 +398,14 @@ describe('tiempo límite', () => {
     sinRespuesta()
     const controlador = new AbortController()
     const consulta = capturar(obtenerJson(RUTA, { signal: controlador.signal }))
-    await vi.advanceTimersByTimeAsync(1000)
+    await jest.advanceTimersByTimeAsync(1000)
 
     controlador.abort()
-    await vi.advanceTimersByTimeAsync(0)
+    await jest.advanceTimersByTimeAsync(0)
 
     expect(consulta.error).toMatchObject({ tipo: TIPOS_ERROR.cancelado })
     expect(peticiones[0].signal.aborted).toBe(true)
-    expect(vi.getTimerCount()).toBe(0)
+    expect(jest.getTimerCount()).toBe(0)
   })
 })
 
@@ -416,13 +414,13 @@ describe('vigencia de la caché', () => {
   const INICIO = new Date('2026-12-01T12:00:00Z')
 
   beforeEach(() => {
-    vi.useFakeTimers({ toFake: ['Date'] })
-    vi.setSystemTime(INICIO)
+    simularSoloFecha()
+    jest.setSystemTime(INICIO)
   })
-  afterEach(() => vi.useRealTimers())
+  afterEach(() => jest.useRealTimers())
 
   function avanzarHora(ms) {
-    vi.setSystemTime(Date.now() + ms)
+    jest.setSystemTime(Date.now() + ms)
   }
 
   it('un dato vigente (4:59) no se vuelve a pedir', async () => {
@@ -491,14 +489,15 @@ describe('vigencia de la caché', () => {
 
   it('si la actualización agota el plazo, el dato vencido se queda', async () => {
     const primera = await obtenerJson(RUTA)
-    // Ahora se fingen también los temporizadores para no esperar 15 s
-    vi.useFakeTimers()
-    vi.setSystemTime(Date.now() + VIGENCIA_CACHE_MS)
+    // Ahora se fingen también los temporizadores para no esperar 15 s. now conserva la hora
+    // fingida: sin él, Jest reinicia el reloj a la hora real
+    jest.useFakeTimers({ now: Date.now() })
+    jest.setSystemTime(Date.now() + VIGENCIA_CACHE_MS)
     server.use(http.get(`${API}/prueba`, () => new Promise(() => {})))
 
     let error
     obtenerJson(RUTA).catch((motivo) => (error = motivo))
-    await vi.advanceTimersByTimeAsync(TIEMPO_LIMITE_MS)
+    await jest.advanceTimersByTimeAsync(TIEMPO_LIMITE_MS)
 
     expect(error).toMatchObject({ tipo: TIPOS_ERROR.tiempoAgotado })
     expect(peticiones).toHaveLength(2)

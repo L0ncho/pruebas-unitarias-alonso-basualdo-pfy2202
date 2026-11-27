@@ -1,4 +1,3 @@
-import { describe, expect, it } from 'vitest'
 import { destinos, hoteles, vuelos } from '../mocks/datos.js'
 import { validarListadoDestinos, validarOpcionesViaje } from './validacion.js'
 

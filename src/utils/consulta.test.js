@@ -1,5 +1,4 @@
 import { NetworkStatus } from '@apollo/client'
-import { describe, expect, it } from 'vitest'
 import { VIGENCIA_CACHE_MS } from '../config/api.js'
 import { derivarEstadoConsulta, derivarEstadoOpcionesViaje, politicaCacheApollo } from './consulta.js'
 import { TIPOS_ERROR } from './errores.js'

@@ -1,14 +1,13 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ALMACENES, guardarAlmacenamiento, leerAlmacenamiento } from './almacenamiento.js'
 import { CLAVE_SIMULACION, guardarModoSimulacion, leerModoSimulacion, MODOS } from '../mocks/simulacion.js'
 import { crearAlmacenamiento } from '../test/almacenamiento.js'
+import { definirGlobal, sustituirGlobal } from '../test/globales.js'
 import { CLAVE_TEMA, guardarTema, leerTemaGuardado, TEMAS } from './tema.js'
 
 // Almacenamiento bloqueado como en Chrome con "No se permite guardar datos": leer la propiedad
 // global (window.localStorage o window.sessionStorage) lanza SecurityError
 function bloquearPropiedad(almacen) {
-  Object.defineProperty(globalThis, almacen, {
-    configurable: true,
+  definirGlobal(almacen, {
     get() {
       throw new DOMException(
         `Failed to read the '${almacen}' property from 'Window': Access is denied for this document.`,
@@ -26,15 +25,13 @@ function almacenamientoQueLanza() {
   return { getItem: lanzar, setItem: lanzar, removeItem: lanzar, clear: lanzar }
 }
 
-afterEach(() => {
-  delete globalThis.localStorage
-  delete globalThis.sessionStorage
-  vi.unstubAllGlobals()
-})
+// Cada prueba reemplaza el almacenamiento de jsdom por uno propio (disponible, bloqueado,
+// que lanza o inexistente). El setup (src/test/configuracion.js) restaura el de jsdom después
+// de cada prueba con restaurarGlobales
 
 describe.each([ALMACENES.local, ALMACENES.sesion])('%s', (almacen) => {
   it('lee y guarda cuando está disponible', () => {
-    vi.stubGlobal(almacen, crearAlmacenamiento())
+    sustituirGlobal(almacen, crearAlmacenamiento())
 
     expect(guardarAlmacenamiento(almacen, 'airfly-prueba', 'valor')).toBe(true)
     expect(leerAlmacenamiento(almacen, 'airfly-prueba')).toBe('valor')
@@ -50,14 +47,14 @@ describe.each([ALMACENES.local, ALMACENES.sesion])('%s', (almacen) => {
   })
 
   it('si getItem y setItem lanzan SecurityError: lee null y no guarda, sin lanzar', () => {
-    vi.stubGlobal(almacen, almacenamientoQueLanza())
+    sustituirGlobal(almacen, almacenamientoQueLanza())
 
     expect(leerAlmacenamiento(almacen, 'airfly-prueba')).toBeNull()
     expect(guardarAlmacenamiento(almacen, 'airfly-prueba', 'valor')).toBe(false)
   })
 
   it('si no existe: lee null y no guarda', () => {
-    vi.stubGlobal(almacen, undefined)
+    sustituirGlobal(almacen, undefined)
 
     expect(leerAlmacenamiento(almacen, 'airfly-prueba')).toBeNull()
     expect(guardarAlmacenamiento(almacen, 'airfly-prueba', 'valor')).toBe(false)
@@ -66,7 +63,7 @@ describe.each([ALMACENES.local, ALMACENES.sesion])('%s', (almacen) => {
 
 describe('modo de simulación (sessionStorage)', () => {
   it('con almacenamiento disponible guarda y lee el modo', () => {
-    vi.stubGlobal('sessionStorage', crearAlmacenamiento())
+    sustituirGlobal('sessionStorage', crearAlmacenamiento())
 
     guardarModoSimulacion(MODOS.lenta)
     expect(sessionStorage.getItem(CLAVE_SIMULACION)).toBe(MODOS.lenta)
@@ -82,7 +79,7 @@ describe('modo de simulación (sessionStorage)', () => {
   })
 
   it('un valor guardado inválido se ignora', () => {
-    vi.stubGlobal('sessionStorage', crearAlmacenamiento())
+    sustituirGlobal('sessionStorage', crearAlmacenamiento())
     sessionStorage.setItem(CLAVE_SIMULACION, 'otro')
 
     expect(leerModoSimulacion()).toBe(MODOS.normal)
@@ -91,7 +88,7 @@ describe('modo de simulación (sessionStorage)', () => {
 
 describe('tema (localStorage)', () => {
   it('con almacenamiento disponible guarda y lee el tema elegido', () => {
-    vi.stubGlobal('localStorage', crearAlmacenamiento())
+    sustituirGlobal('localStorage', crearAlmacenamiento())
 
     guardarTema(TEMAS.oscuro)
     expect(localStorage.getItem(CLAVE_TEMA)).toBe(TEMAS.oscuro)
@@ -106,7 +103,7 @@ describe('tema (localStorage)', () => {
   })
 
   it('un valor guardado inválido se ignora', () => {
-    vi.stubGlobal('localStorage', crearAlmacenamiento())
+    sustituirGlobal('localStorage', crearAlmacenamiento())
     localStorage.setItem(CLAVE_TEMA, 'azul')
 
     expect(leerTemaGuardado()).toBeNull()

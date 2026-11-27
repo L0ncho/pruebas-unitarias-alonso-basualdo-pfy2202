@@ -1,22 +1,21 @@
 import { CombinedGraphQLErrors, ServerError } from '@apollo/client/errors'
 import { graphql, http, HttpResponse } from 'msw'
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { crearClienteApollo, leerRecepcion } from './clienteApollo.js'
 import { OPCIONES_VIAJE, variablesOpcionesViaje } from './consultas.js'
 import { TIEMPO_LIMITE_MS, VIGENCIA_CACHE_MS } from '../config/api.js'
 import { DEMORA_LENTA, ENDPOINT_GRAPHQL } from '../mocks/handlers.js'
 import { guardarModoSimulacion, MODOS } from '../mocks/simulacion.js'
-import { crearAlmacenamiento } from '../test/almacenamiento.js'
-import { crearServidor } from '../test/servidor.js'
+import { waitFor } from '@testing-library/react'
+import { server } from '../test/servidor.js'
+import { simularSoloFecha } from '../test/temporizadores.js'
 import { derivarEstadoOpcionesViaje, politicaCacheApollo } from '../utils/consulta.js'
 import { normalizarError, TIPOS_ERROR } from '../utils/errores.js'
 
 // Integración del cliente Apollo real (HttpLink + InMemoryCache) con el handler GraphQL real
 // en msw/node. Cada prueba usa un cliente nuevo para partir con la caché vacía.
-// El endpoint es relativo a la base ("/graphql" con BASE_URL "/"): en Node lo resuelve el
-// interceptor de fetch de MSW contra la location de src/test/configuracion.js
-
-const server = crearServidor()
+// El endpoint es relativo a la base ("/graphql" con BASE_URL "/"): el interceptor de fetch de
+// MSW lo resuelve contra la location de jsdom (http://localhost/). El servidor MSW y la
+// limpieza de sessionStorage están en src/test/configuracion.js
 
 let cliente
 let peticiones
@@ -35,11 +34,6 @@ async function errorDeConsulta(destinoId) {
   throw new Error('La consulta debía fallar')
 }
 
-beforeAll(() => {
-  vi.stubGlobal('sessionStorage', crearAlmacenamiento())
-  server.listen({ onUnhandledRequest: 'error' })
-})
-
 beforeEach(() => {
   cliente = crearClienteApollo()
   peticiones = []
@@ -49,12 +43,6 @@ beforeEach(() => {
 afterEach(() => {
   server.events.removeAllListeners()
   server.resetHandlers()
-  sessionStorage.clear()
-})
-
-afterAll(() => {
-  server.close()
-  vi.unstubAllGlobals()
 })
 
 describe('consultas y caché', () => {
@@ -274,8 +262,8 @@ describe('validación de OpcionesViaje', () => {
 })
 
 describe('tiempo límite en GraphQL', () => {
-  beforeEach(() => vi.useFakeTimers())
-  afterEach(() => vi.useRealTimers())
+  beforeEach(() => jest.useFakeTimers())
+  afterEach(() => jest.useRealTimers())
 
   function capturar(promesa) {
     const resultado = { estado: 'pendiente' }
@@ -290,10 +278,10 @@ describe('tiempo límite en GraphQL', () => {
     guardarModoSimulacion(MODOS.sinRespuesta)
     const resultado = capturar(consultar('4'))
 
-    await vi.advanceTimersByTimeAsync(TIEMPO_LIMITE_MS - 1)
+    await jest.advanceTimersByTimeAsync(TIEMPO_LIMITE_MS - 1)
     expect(resultado.estado).toBe('pendiente')
 
-    await vi.advanceTimersByTimeAsync(1)
+    await jest.advanceTimersByTimeAsync(1)
     expect(resultado.estado).toBe('rechazada')
     expect(resultado.error).toBeInstanceOf(Error)
     expect(resultado.error.name).not.toBe('UnconventionalError')
@@ -317,7 +305,7 @@ describe('tiempo límite en GraphQL', () => {
     )
     const resultado = capturar(consultar('4'))
 
-    await vi.advanceTimersByTimeAsync(TIEMPO_LIMITE_MS)
+    await jest.advanceTimersByTimeAsync(TIEMPO_LIMITE_MS)
 
     expect(normalizarError(resultado.error).tipo).toBe(TIPOS_ERROR.tiempoAgotado)
   })
@@ -326,7 +314,7 @@ describe('tiempo límite en GraphQL', () => {
     guardarModoSimulacion(MODOS.lenta)
     const resultado = capturar(consultar('4'))
 
-    await vi.advanceTimersByTimeAsync(DEMORA_LENTA)
+    await jest.advanceTimersByTimeAsync(DEMORA_LENTA)
 
     expect(resultado.estado).toBe('resuelta')
     expect(resultado.valor.data.destino.id).toBe(4)
@@ -343,9 +331,9 @@ describe('tiempo límite en GraphQL', () => {
       }),
     )
 
-    await vi.advanceTimersByTimeAsync(2000)
+    await jest.advanceTimersByTimeAsync(2000)
     controlador.abort()
-    await vi.advanceTimersByTimeAsync(TIEMPO_LIMITE_MS)
+    await jest.advanceTimersByTimeAsync(TIEMPO_LIMITE_MS)
 
     expect(normalizarError(resultado.error).tipo).toBe(TIPOS_ERROR.cancelado)
   })
@@ -368,13 +356,13 @@ describe('vigencia de la caché de Apollo', () => {
   const VARIABLES = variablesOpcionesViaje('3')
 
   beforeEach(() => {
-    vi.useFakeTimers({ toFake: ['Date'] })
-    vi.setSystemTime(INICIO)
+    simularSoloFecha()
+    jest.setSystemTime(INICIO)
   })
-  afterEach(() => vi.useRealTimers())
+  afterEach(() => jest.useRealTimers())
 
   function avanzarHora(ms) {
-    vi.setSystemTime(Date.now() + ms)
+    jest.setSystemTime(Date.now() + ms)
   }
 
   function esperar(ms) {
@@ -432,7 +420,7 @@ describe('vigencia de la caché de Apollo', () => {
     avanzarHora(VIGENCIA_CACHE_MS - 1000)
 
     const { politica, emisiones, suscripcion } = observarComoElHook()
-    await vi.waitFor(() => expect(emisiones.length).toBeGreaterThan(0))
+    await waitFor(() => expect(emisiones.length).toBeGreaterThan(0))
     await esperar(1000)
     suscripcion.unsubscribe()
 
@@ -448,7 +436,7 @@ describe('vigencia de la caché de Apollo', () => {
     const { politica, emisiones, observable, suscripcion } = observarComoElHook()
     expect(politica).toEqual({ fetchPolicy: 'cache-and-network', nextFetchPolicy: 'cache-first' })
 
-    await vi.waitFor(() => expect(emisiones.at(-1)?.loading).toBe(false))
+    await waitFor(() => expect(emisiones.at(-1)?.loading).toBe(false))
 
     // Primera emisión: los datos de la caché, con loading (la vista los mantiene con aria-busy)
     expect(emisiones[0]).toMatchObject({ loading: true, data: { destino: { id: 3 } } })
@@ -459,7 +447,7 @@ describe('vigencia de la caché de Apollo', () => {
     // Ninguna emisión deja la vista sin datos
     expect(emisiones.every((r) => r.data?.destino?.id === 3)).toBe(true)
     expect(peticiones).toHaveLength(2)
-    // La vigencia vuelve a contar desde la nueva respuesta (vi.waitFor también avanza la hora falsa)
+    // La vigencia vuelve a contar desde la nueva respuesta (la hora falsa solo avanza con avanzarHora)
     expect(leerRecepcion(cliente, OPERACION, VARIABLES)).toBeGreaterThanOrEqual(INICIO.getTime() + VIGENCIA_CACHE_MS)
 
     // nextFetchPolicy: después de la actualización vuelve a cache-first; una escritura en la
@@ -489,7 +477,7 @@ describe('vigencia de la caché de Apollo', () => {
     fallar()
 
     const { emisiones, suscripcion } = observarComoElHook()
-    await vi.waitFor(() => expect(emisiones.at(-1)?.error).toBeDefined())
+    await waitFor(() => expect(emisiones.at(-1)?.error).toBeDefined())
     suscripcion.unsubscribe()
 
     const ultima = emisiones.at(-1)
@@ -506,13 +494,14 @@ describe('vigencia de la caché de Apollo', () => {
 
   it('si la actualización agota el plazo, se mantienen los datos junto al error', async () => {
     await consultar('3')
-    // Ahora se fingen también los temporizadores para no esperar 15 s
-    vi.useFakeTimers()
-    vi.setSystemTime(Date.now() + VIGENCIA_CACHE_MS)
+    // Ahora se fingen también los temporizadores para no esperar 15 s. now conserva la hora
+    // fingida: sin él, Jest reinicia el reloj a la hora real
+    jest.useFakeTimers({ now: Date.now() })
+    jest.setSystemTime(Date.now() + VIGENCIA_CACHE_MS)
     guardarModoSimulacion(MODOS.sinRespuesta)
 
     const { emisiones, suscripcion } = observarComoElHook()
-    await vi.advanceTimersByTimeAsync(TIEMPO_LIMITE_MS)
+    await jest.advanceTimersByTimeAsync(TIEMPO_LIMITE_MS)
     suscripcion.unsubscribe()
 
     expect(derivarEstadoOpcionesViaje(emisiones.at(-1))).toEqual({
