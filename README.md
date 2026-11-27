@@ -29,7 +29,7 @@ Un recorrido por el sitio publicado para ver sus funciones en unos minutos. Conv
 | Organización y reutilización del código | Capas separadas, componentes y funciones compartidos entre páginas y entre las dos APIs | [Detalle](docs/funcionalidades.md#organización-y-reutilización-del-código) · [estructura](#estructura) |
 | Manejo de estado | `useState` y `useEffect`, estado derivado y estado en la URL | [Detalle](docs/funcionalidades.md#manejo-de-estado) · [`useConsulta.js`](src/hooks/useConsulta.js), [`Destino.jsx`](src/pages/Destino.jsx) |
 | Publicación en GitHub Pages | Base de la subcarpeta, `404.html` y worker de MSW registrado con la base | [Detalle](docs/funcionalidades.md#publicación-en-github-pages) · [`vite.config.js`](vite.config.js), [`package.json`](package.json) |
-| Pruebas | 370 pruebas automatizadas y pruebas manuales en Chrome y Safari | [Detalle](docs/funcionalidades.md#pruebas) · [pruebas](docs/pruebas.md) |
+| Pruebas | 470 pruebas automatizadas (lógica, componentes, hooks, páginas y navegación) con Jest, React Testing Library y MSW, cobertura del 98,59 % de statements, y pruebas manuales en Chrome y Safari | [Detalle](docs/funcionalidades.md#pruebas) · [pruebas](docs/pruebas.md) |
 
 ## Alcance
 
@@ -48,7 +48,9 @@ Un recorrido por el sitio publicado para ver sus funciones en unos minutos. Conv
 | Tailwind CSS | 4.3 (con `@tailwindcss/vite`) | Estilos, sin `tailwind.config.js` ni PostCSS |
 | MSW | 2.15 | API REST y GraphQL simuladas en el navegador |
 | Apollo Client | 4.3 (con `graphql` 16.15 y `rxjs` 7.8) | Consultas GraphQL y caché normalizada |
-| Vitest | 5.1 | Pruebas automatizadas |
+| Jest | 30.5 (con `babel-jest` y `jest-fixed-jsdom`) | Ejecutor de pruebas, temporizadores falsos y cobertura |
+| React Testing Library | 16.3 (con `user-event` 14.6 y `jest-dom` 8.0) | Pruebas de la interfaz desde la perspectiva del usuario |
+| MSW (en pruebas) | 2.15 (`msw/node`) | Los mismos manejadores REST y GraphQL responden en las pruebas |
 | ESLint | 10.14 | Revisión del código |
 | gh-pages | 6.3 | Publicación de `dist` en la rama `gh-pages` |
 
@@ -57,20 +59,23 @@ Un recorrido por el sitio publicado para ver sus funciones en unos minutos. Conv
 Requiere **Node 22.22 o superior**.
 
 ```bash
-npm install       # instala las dependencias
-npm run dev       # servidor de desarrollo (base "/")
-npm run lint      # revisión del código con ESLint
-npm run test      # pruebas con Vitest
-npm run build     # compilación en dist/ (base "/pruebas-unitarias-alonso-basualdo-pfy2202/")
-npm run preview   # sirve dist/ con la misma base que GitHub Pages
-npm run deploy    # compila y publica dist/ en la rama gh-pages
+npm install           # instala las dependencias
+npm run dev           # servidor de desarrollo (base "/")
+npm run lint          # revisión del código con ESLint
+npm test              # ejecuta las 470 pruebas automatizadas con Jest
+npm run test:coverage # ejecuta las pruebas con reporte de cobertura (coverage/) y falla si baja del umbral
+npm run build         # compilación en dist/ (base "/pruebas-unitarias-alonso-basualdo-pfy2202/")
+npm run preview       # sirve dist/ con la misma base que GitHub Pages
+npm run deploy        # compila y publica dist/ en la rama gh-pages
 ```
+
+Cobertura actual: **98,59 %** de statements, **95,71 %** de branches, **98,51 %** de functions y **99,41 %** de lines (umbral: 80 % y 70 % en branches). Detalle en [pruebas](docs/pruebas.md#cobertura).
 
 ## Estructura
 
 ```
 src/
-  config/       nombre, eslogan y país de la agencia (sitio.js); tiempo límite y vigencia de la caché (api.js)
+  config/       nombre, eslogan y país de la agencia (sitio.js); tiempo límite y vigencia de la caché (api.js); base del sitio desde import.meta.env (entorno.js)
   mocks/        datos.js (solo datos), handlers.js (REST y GraphQL), browser.js, simulacion.js
   services/     cliente HTTP con caché, servicio de destinos, cliente Apollo, consultas GraphQL, tiempo límite y reloj
   hooks/        useConsulta, useDestinos, useOpcionesViaje, useVolver
@@ -79,7 +84,7 @@ src/
   components/   comunes (Layout, Boton, Aviso…), destinos/ y destino/
   utils/        funciones puras: errores, ids, formato, viaje, destinos, mock, almacenamiento, tema, validacion, vigencia, consulta
   styles/       clases de Tailwind compartidas
-  test/         configuración y utilidades de las pruebas
+  test/         setup de Jest, servidor MSW compartido y utilidades de las pruebas
 docs/           documentación técnica
 ```
 
@@ -88,6 +93,6 @@ docs/           documentación técnica
 - [Funcionalidades](docs/funcionalidades.md): qué incluye el sitio, dónde está en el código y cómo comprobarlo.
 - [API simulada](docs/api-simulada.md): endpoints REST y GraphQL, modos de simulación y escenarios de los datos.
 - [REST frente a GraphQL](docs/rest-vs-graphql.md): comparación aplicada a AirFly.
-- [Decisiones técnicas](docs/decisiones-tecnicas.md): reutilización, herramientas elegidas, capa de datos, carga, estado y accesibilidad.
-- [Pruebas](docs/pruebas.md): pruebas automatizadas, matriz de navegadores y errores corregidos.
-- [Diagramas](docs/diagramas.md): arquitectura y flujos en Mermaid.
+- [Decisiones técnicas](docs/decisiones-tecnicas.md): reutilización, herramientas elegidas, capa de datos, carga, estado, accesibilidad y pruebas.
+- [Pruebas](docs/pruebas.md): herramientas, estrategia por capas, infraestructura, cobertura, matriz de navegadores y errores corregidos.
+- [Diagramas](docs/diagramas.md): arquitectura, flujos y arquitectura de pruebas en Mermaid.

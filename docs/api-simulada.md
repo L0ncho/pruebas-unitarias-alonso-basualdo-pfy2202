@@ -2,7 +2,7 @@
 
 AirFly no tiene un servidor propio: las dos APIs se simulan en el navegador con MSW 2 (Mock Service Worker). Un Service Worker intercepta las peticiones del sitio y responde con los datos de [`datos.js`](../src/mocks/datos.js) según los handlers de [`handlers.js`](../src/mocks/handlers.js).
 
-Las rutas son relativas a la base del sitio (`import.meta.env.BASE_URL`): en desarrollo, `/api/…` y `/graphql`; en GitHub Pages, `/pruebas-unitarias-alonso-basualdo-pfy2202/api/…` y `/pruebas-unitarias-alonso-basualdo-pfy2202/graphql`.
+Las rutas son relativas a la base del sitio (`BASE_URL`, de [`entorno.js`](../src/config/entorno.js)): en desarrollo, `/api/…` y `/graphql`; en GitHub Pages, `/pruebas-unitarias-alonso-basualdo-pfy2202/api/…` y `/pruebas-unitarias-alonso-basualdo-pfy2202/graphql`.
 
 Cada respuesta espera entre 400 y 900 ms (4 s en el modo lento) para que se vean los indicadores de carga. Los clientes cortan cualquier petición a los 15 s (tiempo límite) y validan la estructura de cada respuesta antes de guardarla ([decisiones técnicas](decisiones-tecnicas.md#capa-de-datos)).
 
@@ -254,3 +254,16 @@ Si el almacenamiento está bloqueado, el modo queda en "Normal" ([`almacenamient
 - **Arranque** en [`main.jsx`](../src/main.jsx): la aplicación se renderiza después de `worker.start()`, para que ninguna petición se adelante al worker. MSW se importa de forma diferida, en un archivo propio que el navegador reutiliza desde su caché.
 - **Registro con la base del sitio** en [`browser.js`](../src/mocks/browser.js): `url` `${BASE_URL}mockServiceWorker.js` y `scope` `BASE_URL`, con un `onUnhandledRequest` propio: una petición a `api/…` o `graphql` sin manejador muestra una advertencia en la consola y sigue a la red, así no se convierte en un error de red ("Sin conexión"); las demás peticiones (scripts, estilos, imágenes) siguen a la red sin aviso. La advertencia aparece también en el sitio publicado. `mockServiceWorker.js` vive en `public/` y se genera con `npx msw init public`.
 - **Si el mock no puede arrancar**, se muestra un aviso específico en lugar de la aplicación ([`MockNoDisponible.jsx`](../src/components/MockNoDisponible.jsx)): el navegador no permite Service Workers, no permitió iniciarlos o no se pudo descargar el código del mock. Detalle en [decisiones técnicas](decisiones-tecnicas.md#aviso-de-service-worker-no-disponible).
+
+## MSW en las pruebas
+
+Las pruebas automatizadas usan la misma API simulada que el navegador, sin Service Worker:
+
+- **Mismos manejadores en Node:** [`servidor.js`](../src/test/servidor.js) crea un servidor con `setupServer` de `msw/node` y los `handlers` de [`handlers.js`](../src/mocks/handlers.js). Intercepta el `fetch` de Node, así que los clientes REST y Apollo hacen peticiones reales, con las demoras, los modos de falla, los 404 y el esquema GraphQL del sitio. En las pruebas la base es `/` ([`test/entorno.js`](../src/test/entorno.js)).
+- **Un servidor para todas las pruebas:** lo inicia y lo cierra el setup ([`configuracion.js`](../src/test/configuracion.js)), que después de cada prueba restaura los manejadores (`server.resetHandlers()`), quita los listeners y vacía las cachés de ambos clientes.
+- **`server.use` para casos puntuales:** una prueba agrega un manejador propio solo cuando el mock no produce ese caso; por ejemplo, un listado con estructura inválida, una lista vacía o una respuesta GraphQL incompleta (`graphql.query('OpcionesViaje', …)`). Al terminar la prueba vuelven los manejadores del sitio.
+- **`onUnhandledRequest: 'error'`:** una petición sin manejador hace fallar la prueba en lugar de seguir a la red. En el navegador, en cambio, una ruta de la API sin manejador solo muestra una advertencia ([arranque del worker](#msw-en-producción-y-arranque-del-worker)); qué URLs son de la API (`esPeticionDeLaApi`) se prueba en [`handlers.test.js`](../src/mocks/handlers.test.js).
+- **Modos de simulación igual que en el sitio:** las pruebas guardan el modo en `sessionStorage` (clave `airfly-simulacion`) antes de renderizar, o lo cambian con el selector "Simulación de la API" del pie, como un usuario. Los modos "Sin respuesta" y "Respuesta lenta" se prueban con temporizadores falsos, sin esperar 4 o 15 s reales.
+- **Conteo de peticiones:** [`peticiones.js`](../src/test/peticiones.js) escucha el evento `request:start` del servidor para verificar, por ejemplo, que un dato vigente no genera una petición nueva.
+
+Detalle en [pruebas](pruebas.md#infraestructura-de-pruebas).

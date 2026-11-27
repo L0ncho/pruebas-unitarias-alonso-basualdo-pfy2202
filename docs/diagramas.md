@@ -121,3 +121,40 @@ sequenceDiagram
   end
   Note over H,C: Al desmontar, el efecto cancela con AbortController,<br/>y una cancelación nunca se muestra como error
 ```
+
+## Arquitectura de pruebas
+
+Jest carga el setup en cada archivo; el setup inicia un servidor MSW único con los mismos manejadores del navegador. Las pruebas renderizan la interfaz con React Testing Library dentro de un `MemoryRouter`, y las páginas usan los clientes reales, cuyas peticiones responde ese servidor.
+
+```mermaid
+flowchart TB
+  jest["Jest<br/>jest-fixed-jsdom + babel-jest"] --> setup["Setup<br/>src/test/configuracion.js"]
+  jest --> pruebas["Archivos de prueba<br/>*.test.js · *.test.jsx"]
+
+  setup -- "listen / resetHandlers / close" --> servidor
+  setup -- "después de cada prueba" --> limpieza["Limpieza: storages,<br/>caché HTTP y cliente Apollo"]
+
+  subgraph servidor["Servidor MSW compartido (msw/node)"]
+    rest["GET /api/destinos"]
+    gql["POST /graphql<br/>esquema real"]
+    datos["datos.js"]
+    rest --> datos
+    gql --> datos
+  end
+
+  subgraph rtl["React Testing Library + user-event"]
+    renderizar["renderizar / renderizarRuta<br/>StrictMode + MemoryRouter"]
+    paginas["Páginas y componentes"]
+    proveedor["ProveedorApollo real<br/>(cliente de la aplicación)"]
+    renderizar --> paginas
+    paginas --> proveedor
+  end
+
+  pruebas --> renderizar
+  pruebas -. "server.use (casos puntuales)" .-> servidor
+  pruebas -. "modo en sessionStorage" .-> servidor
+  paginas -- "clienteHttp: fetch" --> rest
+  proveedor -- "clienteApollo: fetch" --> gql
+  rest -- "respuesta" --> paginas
+  gql -- "respuesta" --> proveedor
+```

@@ -26,7 +26,7 @@ Las dos páginas de datos (Destinos por REST y Destino por GraphQL) y las dos AP
 | Decisión | Razón |
 | --- | --- |
 | Vite 8 | Servidor de desarrollo rápido, compilación con división de archivos configurable y soporte directo para React y Tailwind v4 |
-| `import.meta.env.BASE_URL` | Es la forma de Vite de conocer la base del sitio: la misma variable configura `BrowserRouter`, las rutas de las APIs y el registro del worker, para que todo funcione en la subcarpeta de GitHub Pages |
+| `import.meta.env.BASE_URL`, leído solo en [`config/entorno.js`](../src/config/entorno.js) | Es la forma de Vite de conocer la base del sitio: la misma variable configura `BrowserRouter`, las rutas de las APIs y el registro del worker, para que todo funcione en la subcarpeta de GitHub Pages. El resto del código importa `BASE_URL` y `ES_DESARROLLO` desde ese archivo ([detalle](#pruebas)) |
 | `react-router` v8 | Desde la v7 todo se importa desde `react-router`; en la v8 ya no existe `react-router-dom`. Se usa el modo declarativo con `BrowserRouter` |
 | MSW en `dependencies` y activo en producción | GitHub Pages solo sirve archivos estáticos: sin el mock, el sitio publicado no tendría datos. Por eso MSW no puede ser una dependencia de desarrollo |
 | Apollo Client 4 | Versión vigente. Los hooks y `ApolloProvider` se importan desde `@apollo/client/react`, el cliente se configura con `link: new HttpLink(...)`, requiere `rxjs`, y los errores tienen clases propias (`CombinedGraphQLErrors`, `ServerError`, `ServerParseError`) que `normalizarError` traduce |
@@ -121,6 +121,23 @@ Sin el mock, todas las consultas fallarían y se verían como "Sin conexión", l
 Las capturas de antes y después están en [pruebas](pruebas.md#errores-encontrados-y-corregidos).
 
 **Limitación conocida de `esFallaDescargaModulo`:** reconoce la falla de descarga por el texto del mensaje de cada navegador, porque el estándar solo indica que es un `TypeError` y un error del propio código también puede serlo. Si un navegador usa otro texto, una falla de red real se mostraría como `error-inicio` ("El navegador no permitió iniciar…"). Es el caso más seguro: nunca se muestra "Revisa tu conexión" por un problema que no es de conexión, y el aviso igual ofrece recargar.
+
+## Pruebas
+
+| Decisión | Razón |
+| --- | --- |
+| Jest con Babel solo para las pruebas | El proyecto usa Vite, pero Jest no entiende ESM ni JSX por sí solo: `babel-jest` transforma el código a CommonJS con [`babel.config.cjs`](../babel.config.cjs). Vite no lee ese archivo (`@vitejs/plugin-react` 6 no usa Babel), así que `npm run dev` y `npm run build` no cambian |
+| Entorno `jest-fixed-jsdom` | MSW 2 necesita los globales de Node (`fetch`, `Response`, streams, `BroadcastChannel`) y las condiciones de exportación de `msw/node`. El entorno jsdom estándar los oculta o resuelve la versión de navegador; `jest-fixed-jsdom` es jsdom con esos globales restaurados |
+| [`config/entorno.js`](../src/config/entorno.js) como único lector de `import.meta.env` | `import.meta` no existe en CommonJS. Con un solo punto de lectura, `moduleNameMapper` lo reemplaza por [`test/entorno.js`](../src/test/entorno.js) (base `/`, sin modo desarrollo) y ningún otro archivo necesita cambios. Algunas dependencias leen `import.meta` (`react-router` consulta `import.meta.hot`): un plugin de Babel lo reemplaza por un objeto vacío, acotado a `node_modules` para no ocultar un uso nuevo en el código de la aplicación |
+| `transformIgnorePatterns` con excepciones | Jest no transforma `node_modules` por defecto, pero `react-router`, `@apollo/client`, `rettime` y otras dependencias de MSW solo se publican como ESM (o se resuelven a su build `.mjs`). Se transforman solo esos paquetes y los `.mjs`, para no pagar el costo de transformar todo |
+| Temporizadores falsos sin `nextTick` ni `queueMicrotask` | El cliente HTTP difiere el abort con `queueMicrotask` (para el doble efecto de StrictMode) y MSW y undici usan `process.nextTick`. Simularlos congelaría las respuestas; se simulan solo los temporizadores y, para el vencimiento de caché, solo `Date` |
+| Servidor MSW único con los manejadores reales | Las pruebas usan los mismos manejadores que el navegador, con sus demoras, modos de falla y esquema GraphQL. No se simula `fetch` ni se usa `MockedProvider` de Apollo: esas alternativas probarían un contrato inventado, mientras que así se ejercitan los clientes reales, su caché, el tiempo límite y la validación. `onUnhandledRequest: 'error'` convierte una petición inesperada en una falla de la prueba |
+| Cliente Apollo de la aplicación reiniciado entre pruebas | Las páginas montan el [`ProveedorApollo`](../src/components/ProveedorApollo.jsx) real con el cliente único de la aplicación, igual que en el navegador. El setup llama a `reiniciarClienteApollo()` (vacía la caché y las horas de recepción) después de cada prueba, así no hace falta un proveedor distinto para las pruebas ni cambiar el componente |
+| Aislamiento de módulos en las pruebas de carga diferida | `React.lazy` guarda la página una vez cargada: sin aislar, "Cargando página…" solo se vería en la primera prueba del archivo. Cada prueba de ruta de [`App.test.jsx`](../src/App.test.jsx) corre dentro de `jest.isolateModulesAsync` con su propia copia de la aplicación, de React y de Testing Library, y no depende del orden |
+| Prop `alRecargar` en [`MockNoDisponible`](../src/components/MockNoDisponible.jsx) | En jsdom `location.reload` no se puede reemplazar ni espiar (es una propiedad no configurable) y no implementa la navegación. La prop opcional, con `window.location.reload()` por defecto, deja el comportamiento del navegador igual y permite verificar el botón con `jest.fn()`, sin depender de mensajes internos de jsdom |
+| Umbral de cobertura global | `coverageThreshold` en [`jest.config.cjs`](../jest.config.cjs) (80 % de statements, functions y lines; 70 % de branches) hace que `npm run test:coverage` falle si una modificación deja código sin probar. El umbral de ramas es menor porque algunas son defensivas o variantes que los datos del mock no producen ([detalle](pruebas.md#cobertura)) |
+
+Estrategia, infraestructura y resultados en [pruebas](pruebas.md).
 
 ## Fuera de alcance y posibles mejoras
 
