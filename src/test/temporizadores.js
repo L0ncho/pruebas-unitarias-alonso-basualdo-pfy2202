@@ -1,3 +1,5 @@
+import { act } from '@testing-library/react'
+
 // APIs de tiempo que Jest puede simular. Jest no tiene la opción toFake de Vitest: se indica
 // cuáles no simular (doNotFake)
 const APIS_SIMULABLES = [
@@ -23,4 +25,12 @@ const APIS_SIMULABLES = [
 // vi.useFakeTimers({ toFake: ['Date'] })
 export function simularSoloFecha() {
   jest.useFakeTimers({ doNotFake: APIS_SIMULABLES.filter((api) => api !== 'Date') })
+}
+
+// Avanza los temporizadores falsos dentro de act: las actualizaciones de React que provoca el
+// tiempo (respuestas del mock, tiempo límite) se aplican sin advertencias de act()
+export async function avanzar(ms) {
+  await act(async () => {
+    await jest.advanceTimersByTimeAsync(ms)
+  })
 }

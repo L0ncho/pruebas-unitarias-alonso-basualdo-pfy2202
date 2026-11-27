@@ -8,8 +8,8 @@ import { vaciarCache } from '../services/clienteHttp.js'
 // - API simulada: el servidor MSW con los handlers del sitio. Una petición sin handler es un
 //   error de la prueba (onUnhandledRequest: 'error'), no una advertencia que se pierde.
 // - Después de cada prueba se limpia el estado global para que ninguna dependa de otra: globales
-//   reemplazados, handlers agregados, almacenamiento (modo de simulación y tema), caché del
-//   cliente HTTP y caché del cliente Apollo de la aplicación.
+//   reemplazados, handlers y listeners del servidor agregados, almacenamiento (modo de simulación
+//   y tema), caché del cliente HTTP y caché del cliente Apollo de la aplicación.
 // Los archivos con @jest-environment node (sin window) usan solo la parte que no depende del DOM
 
 const hayDom = typeof window !== 'undefined'
@@ -37,6 +37,7 @@ afterEach(async () => {
   // Primero los globales: una prueba pudo reemplazar localStorage o sessionStorage
   restaurarGlobales()
   server.resetHandlers()
+  server.events.removeAllListeners()
   if (hayDom) {
     localStorage.clear()
     sessionStorage.clear()
