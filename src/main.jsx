@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router'
 import './index.css'
 import App from './App.jsx'
+import { BASE_URL } from './config/entorno.js'
 import MockNoDisponible from './components/MockNoDisponible.jsx'
 import { ESTADOS_MOCK, estadoMock, soportaServiceWorker } from './utils/mock.js'
 
@@ -10,7 +11,7 @@ function renderizar(estado) {
   createRoot(document.getElementById('root')).render(
     <StrictMode>
       {estado === ESTADOS_MOCK.activo ? (
-        <BrowserRouter basename={import.meta.env.BASE_URL}>
+        <BrowserRouter basename={BASE_URL}>
           <App />
         </BrowserRouter>
       ) : (

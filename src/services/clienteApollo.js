@@ -2,13 +2,14 @@ import { ApolloClient, ApolloLink, HttpLink, InMemoryCache } from '@apollo/clien
 import { map } from 'rxjs'
 import { ahora } from './reloj.js'
 import { conTiempoLimite } from './tiempoLimite.js'
+import { BASE_URL } from '../config/entorno.js'
 import { crearErrorDatosIncompletos } from '../utils/errores.js'
 import { validarOpcionesViaje } from '../utils/validacion.js'
 
 // Cliente GraphQL de la aplicación. Apollo se usa solo para GraphQL: lo REST va por clienteHttp.
 
 // Relativo a la base del sitio, para que funcione también en GitHub Pages
-const ENDPOINT = `${import.meta.env.BASE_URL}graphql`
+const ENDPOINT = `${BASE_URL}graphql`
 
 // fetch del HttpLink, con los mismos criterios que el cliente REST:
 // - Tiempo límite (el mismo conTiempoLimite): cubre la petición y la lectura del cuerpo. Por eso
@@ -121,3 +122,11 @@ export function crearClienteApollo() {
 }
 
 export const clienteApollo = crearClienteApollo()
+
+// Deja un cliente (por defecto, el de la aplicación) con la caché vacía y sin horas de recepción,
+// como recién creado. clearStore no repite las consultas activas. Lo usa el setup de las
+// pruebas entre una prueba y otra; la aplicación no lo necesita
+export async function reiniciarClienteApollo(cliente = clienteApollo) {
+  recepcionesPorCliente.get(cliente)?.clear()
+  await cliente.clearStore()
+}

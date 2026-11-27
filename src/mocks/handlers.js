@@ -1,11 +1,12 @@
 import { delay, graphql, http, HttpResponse } from 'msw'
 import { destinos, hoteles, vuelos } from './datos.js'
 import { leerModoSimulacion, MODOS } from './simulacion.js'
+import { BASE_URL } from '../config/entorno.js'
 import { convertirEntero } from '../utils/ids.js'
 
 // Rutas relativas a la base del sitio, para que funcionen también en GitHub Pages
-export const API = `${import.meta.env.BASE_URL}api`
-export const ENDPOINT_GRAPHQL = `${import.meta.env.BASE_URL}graphql`
+export const API = `${BASE_URL}api`
+export const ENDPOINT_GRAPHQL = `${BASE_URL}graphql`
 
 // Si la URL es de la API simulada (api/... o graphql, en el mismo origen y bajo la base del sitio).
 // browser.js lo usa para advertir en la consola cuando una de ellas no tiene manejador

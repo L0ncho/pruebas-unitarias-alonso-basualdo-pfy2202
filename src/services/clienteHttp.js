@@ -1,5 +1,6 @@
 import { ahora } from './reloj.js'
 import { conTiempoLimite } from './tiempoLimite.js'
+import { BASE_URL } from '../config/entorno.js'
 import { crearErrorDatosIncompletos, normalizarError } from '../utils/errores.js'
 import { estaVigente } from '../utils/vigencia.js'
 
@@ -17,7 +18,7 @@ import { estaVigente } from '../utils/vigencia.js'
 // - Un error o un dato inválido nunca se guarda en caché.
 
 // Relativa a la base del sitio, para que funcione también en GitHub Pages
-const BASE_API = `${import.meta.env.BASE_URL}api`
+const BASE_API = `${BASE_URL}api`
 
 // url → { datos, recibidoEn }
 const cache = new Map()
@@ -35,6 +36,15 @@ function errorCancelado() {
 // indicador de carga. Entrega el dato aunque esté vencido: la vista lo muestra mientras se actualiza
 export function leerCache(ruta) {
   return cache.get(construirUrl(ruta))?.datos
+}
+
+// Deja el cliente como recién cargado: vacía la caché y aborta las peticiones en curso (sus
+// consumidores reciben "cancelado"). Lo usa el setup de las pruebas entre una prueba y otra;
+// la aplicación no lo necesita
+export function vaciarCache() {
+  for (const peticion of enCurso.values()) peticion.controlador.abort()
+  enCurso.clear()
+  cache.clear()
 }
 
 // Si el dato en caché de la ruta está vigente en momento (por defecto, ahora)
