@@ -1,0 +1,1 @@
+import{b as e,x as t}from"./index-CMZjRwys.js";function n(n){let r=t(),i=e();return function(){i.key==="default"?r(n):r(-1)}}export{n as t};
